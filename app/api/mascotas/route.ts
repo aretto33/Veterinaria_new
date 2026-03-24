@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getDataProvider } from '@/lib/data/provider'
-
 export async function POST(request: NextRequest) {
-  const provider = getDataProvider()
-  const mascota = await provider.createMascota(await request.json())
-
-  return NextResponse.json(mascota, { status: 201 })
+  const payload = await request.json()
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/mascotas`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await response.json()
+  return NextResponse.json(data, { status: response.status })
 }

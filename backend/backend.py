@@ -1,7 +1,8 @@
 import os
 import mariadb
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response
+from PIL import Image, UnidentifiedImageError
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -80,6 +81,22 @@ def get_full_name(cursor, user_id):
     return f"{profile[0]} {profile[1]}".strip()
 
 
+def get_user_related_ids(cursor, user_id, role_id):
+    client_id = None
+    vet_id = None
+
+    if role_id == 1:
+        cursor.execute("SELECT pk_cliente FROM Cliente WHERE fk_usuario = %s", (user_id,))
+        row = cursor.fetchone()
+        client_id = row[0] if row else None
+    elif role_id == 2:
+        cursor.execute("SELECT pk_veterinario FROM Veterinario WHERE fk_usuario = %s", (user_id,))
+        row = cursor.fetchone()
+        vet_id = row[0] if row else None
+
+    return client_id, vet_id
+
+
 @app.get("/api/health")
 def health():
     return jsonify({"status": "ok"})
@@ -151,6 +168,105 @@ def bootstrap():
             for row in cursor.fetchall()
         ]
 
+        cursor.execute(
+            """
+            SELECT vd.pk_tratamiento, vd.fecha_aplicacion, vd.fk_medicamento, vd.fk_servicio,
+                   m.nombre, m.descripcion, s.nombre
+            FROM Vacuna_Desparacitacion vd
+            LEFT JOIN Medicamentos m ON m.pk_medicamento = vd.fk_medicamento
+            LEFT JOIN Servicios s ON s.pk_servicio = vd.fk_servicio
+            ORDER BY vd.pk_tratamiento
+            """
+        )
+        tratamientos = [
+            {
+                "id_tratamiento": row[0],
+                "fecha_aplicacion": row[1],
+                "fk_medicamento": row[2],
+                "fk_servicio": row[3],
+                "nombre_producto": row[4] or "Tratamiento",
+                "descripcion": row[5] or "",
+                "servicio_nombre": row[6] or "",
+                "tipo": row[6] or "",
+            }
+            for row in cursor.fetchall()
+        ]
+
+        cursor.execute(
+            """
+            SELECT vs.fk_veterinario, vs.fk_servicio, vs.precio_vet,
+                   p.nombre, p.apellidos, v.especialidad, p.telefono, v.direcc_consultorio
+            FROM Veterinario_Servicio vs
+            INNER JOIN Veterinario v ON v.pk_veterinario = vs.fk_veterinario
+            INNER JOIN Perfil_Usuario p ON p.fk_usuario = v.fk_usuario
+            ORDER BY vs.fk_servicio, vs.fk_veterinario
+            """
+        )
+        veterinario_servicios = [
+            {
+                "fk_veterinario": row[0],
+                "fk_servicio": row[1],
+                "precio": float(row[2]) if row[2] is not None else 0,
+                "veterinario_nombre": f"{row[3]} {row[4]}".strip(),
+                "especialidad": row[5] or "",
+                "telefono": str(row[6] or ""),
+                "direccion": row[7] or "",
+            }
+            for row in cursor.fetchall()
+        ]
+
+        cursor.execute(
+            """
+            SELECT fk_veterinario, dia, hora_inicio, hora_fin, disponible
+            FROM Agenda_Veterinario
+            ORDER BY fk_veterinario, pk_agenda
+            """
+        )
+        agenda_veterinarios = [
+            {
+                "fk_veterinario": row[0],
+                "dia": row[1],
+                "hora_inicio": str(row[2]),
+                "hora_fin": str(row[3]),
+                "disponible": bool(row[4]),
+            }
+            for row in cursor.fetchall()
+        ]
+
+        cursor.execute(
+            """
+            SELECT c.pk_cita, c.fecha_hora, c.estado, c.motivo_consulta,
+                   c.fk_cliente, c.fk_veterinario, c.fk_mascota,
+                   m.nombre,
+                   p.nombre, p.apellidos,
+                   v.direcc_consultorio,
+                   s.nombre
+            FROM Citas c
+            INNER JOIN Mascotas m ON m.pk_mascota = c.fk_mascota
+            INNER JOIN Veterinario v ON v.pk_veterinario = c.fk_veterinario
+            INNER JOIN Perfil_Usuario p ON p.fk_usuario = v.fk_usuario
+            LEFT JOIN Veterinario_Servicio vs ON vs.fk_veterinario = c.fk_veterinario
+            LEFT JOIN Servicios s ON s.pk_servicio = vs.fk_servicio
+            ORDER BY c.fecha_hora DESC
+            """
+        )
+        citas = [
+            {
+                "id": row[0],
+                "fecha_hora": row[1],
+                "estado": row[2],
+                "motivo": row[3],
+                "fk_cliente": row[4],
+                "fk_veterinario": row[5],
+                "fk_mascota": row[6],
+                "mascota": row[7],
+                "veterinario": f"{row[8]} {row[9]}".strip(),
+                "direccion": row[10] or "",
+                "servicio": row[11] or "Consulta",
+            }
+            for row in cursor.fetchall()
+        ]
+
         cursor.execute("SELECT pk_usuario FROM Usuario ORDER BY pk_usuario")
         nombres_usuarios = {}
         for row in cursor.fetchall():
@@ -161,6 +277,10 @@ def bootstrap():
                 "servicios": servicios,
                 "mascotas": mascotas,
                 "cartillas": cartillas,
+                "tratamientos": tratamientos,
+                "veterinarioServicios": veterinario_servicios,
+                "agendaVeterinarios": agenda_veterinarios,
+                "citas": citas,
                 "nombresUsuarios": nombres_usuarios,
             }
         )
@@ -199,6 +319,8 @@ def login():
                 "Credenciales invalidas. Verifica tu email y contraseña.", 401
             )
 
+        client_id, vet_id = get_user_related_ids(cursor, user[0], user[4])
+
         return jsonify(
             {
                 "user": {
@@ -206,6 +328,8 @@ def login():
                     "nombre_usuario": user[1],
                     "email": user[2],
                     "role_id": user[4],
+                    "cliente_id": client_id,
+                    "veterinario_id": vet_id,
                 },
                 "fullName": get_full_name(cursor, user[0]),
             }
@@ -355,6 +479,7 @@ def update_profile(user_id):
     email = str(data.get("email", "")).strip().lower()
     telefono = str(data.get("telefono", "")).strip()
     nombre_usuario = str(data.get("nombre_usuario", "")).strip()
+    
 
     if not nombre_usuario:
         return validation_error("El nombre de usuario es obligatorio")
@@ -438,18 +563,20 @@ def update_profile(user_id):
 
 @app.post("/api/foto_perfil/<int:user_id>")
 def subir_perfil(user_id):
-    archivo = request.files.get("foto")
+    archivo = request.files.get("foto") or request.files.get("foto_perfil")
     if not archivo or archivo.filename == "":
         return validation_error("Debes seleccionar una imagen")
 
-    if not is_allowed_image(archivo.filename):
+    filename_secure = secure_filename(archivo.filename)
+    if not is_allowed_image(filename_secure):
         return validation_error("Formato de imagen no permitido. Usa png, jpg, jpeg o webp.")
 
-    archivo.stream.seek(0, os.SEEK_END)
-    file_size = archivo.stream.tell()
-    archivo.stream.seek(0)
-    if file_size > MAX_IMAGE_SIZE_BYTES:
-        return validation_error("La imagen no debe exceder 5 MB")
+    # Leer bytes y validar tamaño
+    foto_bytes = archivo.read()
+    if not foto_bytes:
+        return validation_error("Archivo vacío")
+    if len(foto_bytes) > MAX_IMAGE_SIZE_BYTES:
+        return validation_error("La imagen excede el tamaño máximo permitido (5 MB).", 413)
 
     conn, cursor = conectar_bd()
     if not conn:
@@ -460,27 +587,32 @@ def subir_perfil(user_id):
         if not cursor.fetchone():
             return validation_error("Usuario no encontrado", 404)
 
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-        extension = secure_filename(archivo.filename).rsplit(".", 1)[1].lower()
-        filename = f"perfil_{user_id}.{extension}"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        archivo.save(filepath)
-        ruta_relativa = f"/uploads/perfiles/{filename}"
+        # Intentar guardar copia en disco (opcional, para compatibilidad)
+        try:
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            extension = filename_secure.rsplit(".", 1)[1].lower() if "." in filename_secure else "jpg"
+            disk_filename = f"perfil_{user_id}.{extension}"
+            disk_path = os.path.join(UPLOAD_FOLDER, disk_filename)
+            with open(disk_path, "wb") as f:
+                f.write(foto_bytes)
+        except Exception:
+            disk_path = None
 
+        # Guardar bytes en BD (columna foto_perfil debe ser BLOB)
         cursor.execute(
             """
             UPDATE Perfil_Usuario
             SET foto_perfil = %s
             WHERE fk_usuario = %s
             """,
-            (ruta_relativa, user_id),
+            (foto_bytes, user_id),
         )
         conn.commit()
 
         return jsonify(
             {
                 "message": "Foto de perfil actualizada correctamente",
-                "foto_perfil": ruta_relativa,
+                "foto_url": f"/api/foto_perfil/{user_id}"
             }
         )
     except mariadb.Error as error:
@@ -489,12 +621,6 @@ def subir_perfil(user_id):
     finally:
         conn.close()
 
-
-@app.get("/uploads/perfiles/<path:filename>")
-def serve_profile_photo(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-        
-#----------------------------------------------    
 @app.post("/api/mascotas")
 def create_mascota():
     data = request.get_json(silent=True) or {}
@@ -668,6 +794,71 @@ def update_cartilla(cartilla_id):
     except mariadb.Error as error:
         conn.rollback()
         return validation_error(f"No se pudo actualizar la cartilla: {error}", 500)
+    finally:
+        conn.close()
+
+
+@app.post("/api/citas")
+def create_cita():
+    data = request.get_json(silent=True) or {}
+    required_fields = [
+        "fecha_hora",
+        "motivo_consulta",
+        "fk_cliente",
+        "fk_veterinario",
+        "fk_mascota",
+    ]
+    missing_fields = [field for field in required_fields if data.get(field) in (None, "")]
+    if missing_fields:
+        return validation_error(
+            f"Faltan campos obligatorios: {', '.join(missing_fields)}"
+        )
+
+    conn, cursor = conectar_bd()
+    if not conn:
+        return validation_error("No se pudo conectar a la base de datos", 500)
+
+    try:
+        cursor.execute(
+            """
+            INSERT INTO Citas (fecha_hora, estado, motivo_consulta, fk_cliente, fk_veterinario, fk_mascota)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (
+                data["fecha_hora"],
+                data.get("estado", "Pendiente"),
+                data["motivo_consulta"],
+                int(data["fk_cliente"]),
+                int(data["fk_veterinario"]),
+                int(data["fk_mascota"]),
+            ),
+        )
+        cita_id = cursor.lastrowid
+        conn.commit()
+        return jsonify({"id": cita_id, "message": "Cita creada correctamente"}), 201
+    except mariadb.Error as error:
+        conn.rollback()
+        return validation_error(f"No se pudo crear la cita: {error}", 500)
+    finally:
+        conn.close()
+
+
+@app.delete("/api/citas/<int:cita_id>")
+def delete_cita(cita_id):
+    conn, cursor = conectar_bd()
+    if not conn:
+        return validation_error("No se pudo conectar a la base de datos", 500)
+
+    try:
+        cursor.execute("DELETE FROM Citas WHERE pk_cita = %s", (cita_id,))
+        if cursor.rowcount == 0:
+            conn.rollback()
+            return validation_error("Cita no encontrada", 404)
+        conn.commit()
+        return jsonify({"message": "Cita cancelada correctamente"})
+    except mariadb.Error as error:
+        conn.rollback()
+        return validation_error(f"No se pudo cancelar la cita: {error}", 500)
     finally:
         conn.close()
 

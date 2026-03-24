@@ -1,13 +1,22 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { Usuario, Cartilla_Vacunacion, Mascotas, Servicios } from '@/lib/types'
+import {
+  CitaAgendada,
+  Cartilla_Vacunacion,
+  Mascotas,
+  Servicios,
+  Usuario,
+  Vacuna_desparacitacion,
+  VeterinarioAgenda,
+  VeterinarioServicio,
+} from '@/lib/types'
 import { AppSidebar } from '@/components/app-sidebar'
 import { DashboardView } from '@/components/dashboard-view'
 import { LoginView } from '@/components/login-view'
 import { VeterinarioView } from '@/components/veterinario-view'
 import { ClienteView } from '@/components/cliente-view'
-import { CitasView } from '@/components/citas-view' 
+import { CitasView } from '@/components/citas-view'
 import { SettingsView } from '@/components/settings-view'
 import { CartillasView } from '@/components/cartillas-view'
 import { CalendarioView } from '@/components/calendario-view'
@@ -26,6 +35,10 @@ export default function MediVetApp() {
   const [servicios, setServicios] = useState<Servicios[]>([])
   const [cartillas, setCartillas] = useState<Cartilla_Vacunacion[]>([])
   const [mascotas, setMascotas] = useState<Mascotas[]>([])
+  const [tratamientos, setTratamientos] = useState<Vacuna_desparacitacion[]>([])
+  const [veterinarioServicios, setVeterinarioServicios] = useState<VeterinarioServicio[]>([])
+  const [agendaVeterinarios, setAgendaVeterinarios] = useState<VeterinarioAgenda[]>([])
+  const [citasAgendadas, setCitasAgendadas] = useState<CitaAgendada[]>([])
   const [nombresUsuarios, setNombresUsuarios] = useState<Record<number, string>>({})
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -47,6 +60,31 @@ export default function MediVetApp() {
         )
         setCartillas(data.cartillas)
         setMascotas(data.mascotas)
+        setTratamientos(data.tratamientos || [])
+        setVeterinarioServicios(data.veterinarioServicios || [])
+        setAgendaVeterinarios(data.agendaVeterinarios || [])
+        setCitasAgendadas(
+          (data.citas || []).map((cita: any) => {
+            const fecha = new Date(cita.fecha_hora)
+            const fechaTexto = Number.isNaN(fecha.getTime())
+              ? ''
+              : fecha.toISOString().slice(0, 10)
+            const horaTexto = Number.isNaN(fecha.getTime())
+              ? ''
+              : fecha.toTimeString().slice(0, 5)
+
+            return {
+              id: cita.id,
+              servicio: cita.servicio,
+              mascota: cita.mascota,
+              veterinario: cita.veterinario,
+              fecha: fechaTexto,
+              hora: horaTexto,
+              direccion: cita.direccion,
+              motivo: cita.motivo,
+            }
+          })
+        )
         setNombresUsuarios(data.nombresUsuarios)
       } catch (error) {
         const message =
@@ -160,6 +198,70 @@ export default function MediVetApp() {
     }
   }, [])
 
+  const handleAgendarCita = useCallback((cita: Omit<CitaAgendada, 'id'>) => {
+    const save = async () => {
+      try {
+        if (!currentUser?.cliente_id) {
+          throw new Error('No se encontró el cliente autenticado')
+        }
+
+        const mascota = mascotas.find((item) => item.Nombre === cita.mascota)
+        const profesional = veterinarioServicios.find(
+          (item) => item.veterinario_nombre === cita.veterinario && item.fk_servicio === servicios.find((s) => s.nombre === cita.servicio)?.id_servicio
+        )
+
+        if (!mascota || !profesional) {
+          throw new Error('No se pudo relacionar la cita con la base de datos')
+        }
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/citas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fecha_hora: `${cita.fecha} ${cita.hora}:00`,
+            motivo_consulta: cita.motivo,
+            fk_cliente: currentUser.cliente_id,
+            fk_veterinario: profesional.fk_veterinario,
+            fk_mascota: mascota.id,
+          }),
+        })
+
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.message || 'No se pudo crear la cita')
+        }
+
+        setCitasAgendadas((prev) => [{ id: data.id, ...cita }, ...prev])
+        toast.success('Cita agendada correctamente')
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'No se pudo agendar la cita')
+      }
+    }
+
+    void save()
+  }, [])
+
+  const handleCancelarCita = useCallback((id: number) => {
+    const remove = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/citas/${id}`, {
+          method: 'DELETE',
+        })
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.message || 'No se pudo cancelar la cita')
+        }
+
+        setCitasAgendadas((prev) => prev.filter((cita) => cita.id !== id))
+        toast.info('Cita cancelada')
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'No se pudo cancelar la cita')
+      }
+    }
+
+    void remove()
+  }, [])
+
   if (isBootstrapping) {
     return (
       <>
@@ -200,16 +302,27 @@ export default function MediVetApp() {
           <ClienteView 
             mascotas={mascotas}
             cartillas={cartillas}
+            tratamientos={tratamientos}
+            clientId={currentUser?.cliente_id ?? null}
             userName={currentUser ? getNombreCompleto(currentUser.id) : 'Usuario'}
             onAgregarMascota={handleAgregarMascota}
           />
         )
 
       case 'veterinarios_lista':
-        return <ListaVeterinariosView servicios={servicios} />
+        return (
+          <ListaVeterinariosView
+            servicios={servicios}
+            mascotas={mascotas}
+            veterinarioServicios={veterinarioServicios}
+            agendaVeterinarios={agendaVeterinarios}
+            citasAgendadas={citasAgendadas}
+            onAgendarCita={handleAgendarCita}
+          />
+        )
 
-      case 'citas': 
-        return <CitasView mascotas={mascotas} servicios={servicios} />
+      case 'citas':
+        return <CitasView citas={citasAgendadas} onCancelCita={handleCancelarCita} />
 
       case 'settings':
         return currentUser ? (

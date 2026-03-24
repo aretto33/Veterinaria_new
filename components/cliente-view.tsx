@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Cartilla_Vacunacion, Mascotas } from '@/lib/types'
-import { vacunas } from '@/lib/mock-data'
+import { useEffect, useState } from 'react'
+import { Cartilla_Vacunacion, Mascotas, Vacuna_desparacitacion } from '@/lib/types'
 import { 
   Plus, 
   PawPrint,
@@ -42,14 +41,41 @@ import {
 interface ClienteViewProps {
   mascotas: Mascotas[]
   cartillas: Cartilla_Vacunacion[]
+  tratamientos: Vacuna_desparacitacion[]
+  clientId: number | null
   userName: string
   onAgregarMascota: (mascota: Omit<Mascotas, 'id'>) => void
 }
 
-export function ClienteView({ mascotas, cartillas, userName, onAgregarMascota }: ClienteViewProps) {
+export function ClienteView({
+  mascotas,
+  cartillas,
+  tratamientos,
+  clientId,
+  userName,
+  onAgregarMascota,
+}: ClienteViewProps) {
   const [isMascotaDialogOpen, setIsMascotaDialogOpen] = useState(false)
   const [isCartillaDialogOpen, setIsCartillaDialogOpen] = useState(false)
-  const [selectedMascotaId, setSelectedMascotaId] = useState<number | null>(mascotas[0]?.id ?? null)
+  const visibleMascotas = clientId
+    ? mascotas.filter((mascota) => mascota.fk_cliente === clientId)
+    : mascotas
+  const [selectedMascotaId, setSelectedMascotaId] = useState<number | null>(visibleMascotas[0]?.id ?? null)
+
+  useEffect(() => {
+    if (!visibleMascotas.length) {
+      setSelectedMascotaId(null)
+      return
+    }
+
+    setSelectedMascotaId((currentId) => {
+      if (currentId && visibleMascotas.some((mascota) => mascota.id === currentId)) {
+        return currentId
+      }
+
+      return visibleMascotas[0].id
+    })
+  }, [visibleMascotas])
   
   // Form state usando nombres del diagrama UML para Mascotas
   const [mascotaForm, setMascotaForm] = useState({
@@ -105,11 +131,11 @@ export function ClienteView({ mascotas, cartillas, userName, onAgregarMascota }:
     }
   }
 
-  const selectedMascota = mascotas.find((mascota) => mascota.id === selectedMascotaId) ?? null
+  const selectedMascota = visibleMascotas.find((mascota) => mascota.id === selectedMascotaId) ?? null
   const selectedMascotaCartillas = cartillas
     .filter((cartilla) => cartilla.fk_mascota === selectedMascotaId)
     .map((cartilla) => {
-      const tratamiento = vacunas.find(
+      const tratamiento = tratamientos.find(
         (vacuna) => vacuna.id_tratamiento === cartilla.fk_desparacitacio_vacuna
       )
 
@@ -172,7 +198,7 @@ export function ClienteView({ mascotas, cartillas, userName, onAgregarMascota }:
         Especie: mascotaForm.Especie,
         Raza: mascotaForm.Raza,
         Fecha_Nacimiento: mascotaForm.Fecha_Nacimiento || '',
-        fk_cliente: 1
+        fk_cliente: clientId || 1
       })
       setIsMascotaDialogOpen(false)
       setMascotaForm({
@@ -207,7 +233,7 @@ export function ClienteView({ mascotas, cartillas, userName, onAgregarMascota }:
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total Mascotas</p>
-              <p className="text-2xl font-bold">{mascotas.length}</p>
+              <p className="text-2xl font-bold">{visibleMascotas.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -241,11 +267,11 @@ export function ClienteView({ mascotas, cartillas, userName, onAgregarMascota }:
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Tus Mascotas</h2>
-          <Badge variant="secondary">{mascotas.length} registradas</Badge>
+          <Badge variant="secondary">{visibleMascotas.length} registradas</Badge>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mascotas.map((mascota) => {
+          {visibleMascotas.map((mascota) => {
             const Icon = getSpeciesIcon(mascota.Especie)
             const colorClass = getSpeciesColor(mascota.Especie)
             
@@ -340,7 +366,7 @@ export function ClienteView({ mascotas, cartillas, userName, onAgregarMascota }:
         </CardHeader>
         <CardContent className="p-6">
           <div className="flex flex-wrap gap-3">
-            {mascotas.map((mascota) => {
+            {visibleMascotas.map((mascota) => {
               const Icon = getSpeciesIcon(mascota.Especie)
               const isActive = mascota.id === selectedMascotaId
 
@@ -527,7 +553,7 @@ export function ClienteView({ mascotas, cartillas, userName, onAgregarMascota }:
 
           <div className="space-y-5">
             <div className="flex flex-wrap gap-3">
-              {mascotas.map((mascota) => {
+              {visibleMascotas.map((mascota) => {
                 const Icon = getSpeciesIcon(mascota.Especie)
                 const isActive = mascota.id === selectedMascotaId
 
