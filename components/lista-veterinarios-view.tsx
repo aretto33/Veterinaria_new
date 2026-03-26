@@ -37,6 +37,31 @@ interface ServicioConEspecialistas extends Servicios {
   profesionales: ServicioProfesional[]
 }
 
+const veterinariosPlantilla: ServicioProfesional[] = [
+  {
+    id: 9001,
+    nombre: 'Dra. Mariana López',
+    especialidad: 'Medicina preventiva y consulta general',
+    direccion: 'Av. Paseo de las Flores 214, Consultorio 3',
+    telefono: '993 215 4487',
+    precio: 380,
+    disponibilidad: 'Lunes, Miércoles y Viernes',
+    horario: '09:00-13:00 • 16:00-19:00',
+    horariosDisponibles: ['09:00', '10:00', '12:00', '16:00'],
+  },
+  {
+    id: 9002,
+    nombre: 'Dr. Carlos Méndez',
+    especialidad: 'Pequeñas especies y seguimiento clínico',
+    direccion: 'Calle Río Usumacinta 58, Consultorio 5',
+    telefono: '993 184 2261',
+    precio: 420,
+    disponibilidad: 'Martes, Jueves y Sábado',
+    horario: '10:00-14:00 • 17:00-20:00',
+    horariosDisponibles: ['10:00', '11:30', '13:00', '17:00'],
+  },
+]
+
 export function ListaVeterinariosView({
   servicios,
   mascotas,
@@ -58,7 +83,7 @@ export function ListaVeterinariosView({
   const serviciosConEspecialistas = useMemo(
     () =>
       servicios.map((servicio) => {
-        const profesionales: ServicioProfesional[] = veterinarioServicios
+        const profesionalesReales: ServicioProfesional[] = veterinarioServicios
           .filter((item) => item.fk_servicio === servicio.id_servicio)
           .map((item) => {
             const agenda = agendaVeterinarios.filter(
@@ -79,6 +104,14 @@ export function ListaVeterinariosView({
               horariosDisponibles: agenda.map((entry) => entry.hora_inicio),
             }
           })
+
+        const profesionales =
+          profesionalesReales.length > 0
+            ? profesionalesReales
+            : veterinariosPlantilla.map((profesional, index) => ({
+                ...profesional,
+                precio: Number((servicio.precio + index * 60).toFixed(2)),
+              }))
 
         return {
           ...servicio,
@@ -154,7 +187,6 @@ export function ListaVeterinariosView({
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Desde</p>
-                  <p className="text-2xl font-black text-slate-900">${servicio.precio.toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -164,6 +196,12 @@ export function ListaVeterinariosView({
                 <Sparkles className="w-4 h-4" />
                 {servicio.profesionales.length} veterinario(s) disponibles para este servicio
               </div>
+
+              {veterinarioServicios.filter((item) => item.fk_servicio === servicio.id_servicio).length === 0 && (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                  Mostrando veterinarios de plantilla mientras completas la información real en la base de datos.
+                </div>
+              )}
 
               {servicio.profesionales.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">

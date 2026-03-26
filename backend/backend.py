@@ -111,7 +111,7 @@ def bootstrap():
     try:
         cursor.execute(
             """
-            SELECT pk_servicio, nombre, descripcion, precio
+            SELECT pk_servicio, nombre, descripcion
             FROM Servicios
             ORDER BY pk_servicio
             """
@@ -121,7 +121,6 @@ def bootstrap():
                 "pk_servicio": row[0],
                 "nombre": row[1],
                 "descripción": row[2],
-                "precio": float(row[3]),
             }
             for row in cursor.fetchall()
         ]
@@ -621,6 +620,7 @@ def subir_perfil(user_id):
     finally:
         conn.close()
 
+
 @app.post("/api/mascotas")
 def create_mascota():
     data = request.get_json(silent=True) or {}
@@ -699,7 +699,7 @@ def create_cartilla():
             """
             INSERT INTO cartillas_vacunacion (
                 fecha_atencion, peso, diagnostico, receta_medicamento,
-                fk_mascota, fk_veterinario, fk_desparacitacio_vacuna
+                fk_mascota, fk_veterinario, fk_tratamiento
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
@@ -710,7 +710,7 @@ def create_cartilla():
                 data["receta_medicamento"],
                 int(data["fk_mascota"]),
                 int(data["fk_veterinanio"]),
-                int(data["fk_desparacitacio_vacuna"]),
+                int(data["fk_tratamiento"]),
             ),
         )
         cartilla_id = cursor.lastrowid
@@ -726,7 +726,7 @@ def create_cartilla():
                     "receta_medicamento": data["receta_medicamento"],
                     "fk_mascota": int(data["fk_mascota"]),
                     "fk_veterinanio": int(data["fk_veterinanio"]),
-                    "fk_desparacitacio_vacuna": int(data["fk_desparacitacio_vacuna"]),
+                    "fk_tratamiento": int(data["fk_tratamiento"]),
                 }
             ),
             201,
@@ -756,7 +756,7 @@ def update_cartilla(cartilla_id):
                 receta_medicamento = %s,
                 fk_mascota = %s,
                 fk_veterinario = %s,
-                fk_desparacitacio_vacuna = %s
+                fk_tratamiento = %s
             WHERE id = %s
             """,
             (
@@ -785,7 +785,7 @@ def update_cartilla(cartilla_id):
                 "receta_medicamento": data["receta_medicamento"],
                 "fk_mascota": int(data["fk_mascota"]),
                 "fk_veterinanio": int(data["fk_veterinanio"]),
-                "fk_desparacitacio_vacuna": int(data["fk_desparacitacio_vacuna"]),
+                "fk_tratamiento": int(data["fk_tratamiento"]),
             }
         )
     except KeyError as error:
