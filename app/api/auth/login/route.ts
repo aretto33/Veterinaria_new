@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getDataProvider } from '@/lib/data/provider'
-
 export async function POST(request: NextRequest) {
-  const { email, contraseña } = await request.json()
-  const provider = getDataProvider()
-  const result = await provider.login(email, contraseña)
-
-  if (!result) {
-    return NextResponse.json(
-      { message: 'Credenciales invalidas. Verifica tu email y contraseña.' },
-      { status: 401 }
-    )
-  }
-
-  return NextResponse.json(result)
+  const payload = await request.json()
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await response.json()
+  return NextResponse.json(data, { status: response.status })
 }

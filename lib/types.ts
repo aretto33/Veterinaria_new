@@ -3,10 +3,12 @@
 // Clase Padre: Usuario
 export interface Usuario {
   id: number
-  nombre_usuario: string
+  nombre_usuario?: string
   email: string
-  contraseña: string
+  contraseña?: string
   role_id: number // 1 = Cliente, 2 = Veterinario
+  cliente_id?: number | null
+  veterinario_id?: number | null
 }
 
 // Perfil_Usuario
@@ -55,6 +57,17 @@ export interface Citas {
   fk_Mascota: number
 }
 
+export interface CitaAgendada {
+  id: number
+  servicio: string
+  mascota: string
+  veterinario: string
+  fecha: string
+  hora: string
+  direccion: string
+  motivo: string
+}
+
 // Mascotas
 export interface Mascotas {
   id: number
@@ -88,9 +101,31 @@ export interface Cartilla_Vacunacion {
 // Vacuna_desparacitación
 export interface Vacuna_desparacitacion {
   id_tratamiento: number
-  tipo: string
+  tipo?: string
   nombre_producto: string
   fecha_aplicacion: string // date
+  fk_medicamento?: number | null
+  fk_servicio?: number | null
+  servicio_nombre?: string
+  descripcion?: string
+}
+
+export interface VeterinarioAgenda {
+  fk_veterinario: number
+  dia: string
+  hora_inicio: string
+  hora_fin: string
+  disponible: boolean
+}
+
+export interface VeterinarioServicio {
+  fk_veterinario: number
+  fk_servicio: number
+  precio: number
+  veterinario_nombre: string
+  especialidad: string
+  telefono: string
+  direccion: string
 }
 
 // Tipos auxiliares para la UI

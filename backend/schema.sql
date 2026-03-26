@@ -32,13 +32,13 @@ CREATE TABLE Usuario (
     FOREIGN KEY (fk_rol) REFERENCES Rol(pk_rol)
 );
 
+
 CREATE TABLE Perfil_Usuario (
     pk_perfil INT AUTO_INCREMENT PRIMARY KEY,
     fk_usuario INT,
     telefono INT,
     nombre VARCHAR(50),
     apellidos VARCHAR(80),
-    foto_perfil VARCHAR(255),
     FOREIGN KEY (fk_usuario) REFERENCES Usuario(pk_usuario)
 );
 
@@ -119,4 +119,20 @@ INSERT INTO Usuario (nombre_usuario, email, contraseña_hash, fk_rol)
 VALUES ('juan', 'juan@mail.com', '123456', 1);
 
 
-INSERT INTO `Servicios`()
+CREATE TABLE Veterinario_Servicio (
+    pk_veterinario_servicio INT AUTO_INCREMENT PRIMARY KEY,
+    fk_veterinario INT NOT NULL,
+    fk_servicio INT NOT NULL,
+    precio DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (fk_veterinario) REFERENCES Veterinario(pk_veterinario),
+    FOREIGN KEY (fk_servicio) REFERENCES Servicios(pk_servicio)
+);
+CREATE TABLE Agenda_Veterinario (
+    pk_agenda INT AUTO_INCREMENT PRIMARY KEY,
+    fk_veterinario INT NOT NULL,
+    dia VARCHAR(20) NOT NULL,
+    hora_inicio TIME NOT NULL,
+    hora_fin TIME NOT NULL,
+    disponible BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (fk_veterinario) REFERENCES Veterinario(pk_veterinario)
+);

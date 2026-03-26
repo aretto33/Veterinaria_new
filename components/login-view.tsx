@@ -18,7 +18,7 @@ interface LoginViewProps {
 }
 
 type ViewMode = 'login' | 'register' | 'select-role'
-
+// Credenciales demo para acceder a la app por si aún no exite algún usuario
 const demoCredentials = {
   cliente: {
     email: 'cliente@digicom.com',
