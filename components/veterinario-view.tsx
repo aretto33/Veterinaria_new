@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Cartilla_Vacunacion, Mascotas } from '@/lib/types'
+import { Cartilla_Vacunacion, Mascotas, Vacuna_desparacitacion } from '@/lib/types'
 import { 
   Plus, 
   Pencil, 
@@ -35,17 +35,20 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { tr } from 'date-fns/locale'
 
 interface VeterinarioViewProps {
   cartillas: Cartilla_Vacunacion[]
   mascotas: Mascotas[]
+  tratamientos: Vacuna_desparacitacion[]
   onCreateCartilla: (cartilla: Omit<Cartilla_Vacunacion, 'id'>) => void
   onUpdateCartilla: (cartilla: Cartilla_Vacunacion) => void
 }
 
 export function VeterinarioView({ 
   cartillas, 
-  mascotas, 
+  mascotas,
+  tratamientos,
   onCreateCartilla, 
   onUpdateCartilla 
 }: VeterinarioViewProps) {
@@ -60,11 +63,19 @@ export function VeterinarioView({
     fecha_atencion: new Date().toISOString().split('T')[0],
     peso: 0,
     diagnostico: '',
-    receta_medicamento: ''
+    receta_medicamento: '',
+    tratamiento: '' // Campo inicialmente diseñado
   })
 
   const getMascotaNombre = (fk_mascota: number) => {
     return mascotas.find(m => m.id === fk_mascota)?.Nombre || 'Desconocido'
+  }
+
+  const getTratamientoNombre = (fk_tratamiento: number) => {
+    const tratamiento = tratamientos.find(
+      (t: Vacuna_desparacitacion) => t.pk_tratamiento === fk_tratamiento
+    )
+    return tratamiento ? tratamiento.nombre || `Tratamiento #${tratamiento.pk_tratamiento}` : 'Desconocido'
   }
 
   const filteredCartillas = cartillas.filter(c => {
@@ -78,7 +89,7 @@ export function VeterinarioView({
     onCreateCartilla({
       ...formData,
       fk_veterinanio: 1,
-      fk_desparacitacio_vacuna: 1
+      fk_tratamiento: 1
     })
     setIsCreateDialogOpen(false)
     resetForm()
@@ -103,7 +114,8 @@ export function VeterinarioView({
       fecha_atencion: new Date().toISOString().split('T')[0],
       peso: 0,
       diagnostico: '',
-      receta_medicamento: ''
+      receta_medicamento: '',
+      tratamiento:''
     })
   }
 
@@ -114,7 +126,8 @@ export function VeterinarioView({
       fecha_atencion: cartilla.fecha_atencion,
       peso: cartilla.peso,
       diagnostico: cartilla.diagnostico,
-      receta_medicamento: cartilla.receta_medicamento
+      receta_medicamento: cartilla.receta_medicamento,
+      tratamiento: cartilla.tratamiento
     })
     setIsEditDialogOpen(true)
   }
@@ -280,9 +293,9 @@ export function VeterinarioView({
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Nueva Cartilla de Vacunacion</DialogTitle>
+            <DialogTitle>Nueva Cartilla Medica</DialogTitle>
             <DialogDescription>
-              Registra una nueva atencion medica para un paciente
+              Registra una nueva atención medica para un paciente
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -338,6 +351,24 @@ export function VeterinarioView({
                 value={formData.receta_medicamento}
                 onChange={(e) => setFormData({...formData, receta_medicamento: e.target.value})}
               />
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="receta">Tipo de tratamiento</Label>
+              <h3>Registrar médicamentos administrados en la consulta</h3>
+              <select
+                id="tratamiento"
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={formData.tratamiento}
+                onChange={(e) => setFormData({...formData, tratamiento: e.target.value}) }>
+                <option value="">Selecciona un tratamiento</option>
+                {tratamientos.map((t: Vacuna_desparacitacion) => (
+                  <option key={t.pk_tratamiento} value={t.nombre || `Tratamiento ${t.pk_tratamiento}`}>
+                    {t.nombre || `Tratamiento ${t.pk_tratamiento}`}
+                  </option>
+                ))}
+              </select>
+    
+
             </div>
           </div>
           <DialogFooter>
@@ -409,6 +440,14 @@ export function VeterinarioView({
                 id="edit-receta"
                 value={formData.receta_medicamento}
                 onChange={(e) => setFormData({...formData, receta_medicamento: e.target.value})}
+              />
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="edit-receta">Receta</Label>
+              <Textarea 
+                id="edit-receta"
+                value={formData.tratamiento}
+                onChange={(e) => setFormData({...formData, tratamiento: e.target.value})}
               />
             </div>
           </div>

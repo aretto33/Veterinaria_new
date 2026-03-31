@@ -10,15 +10,17 @@ import {
   Stethoscope,
   Syringe,
 } from 'lucide-react'
-
+import { VeterinarioServicio } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Servicios } from '@/lib/types'
+import { Servicios, Usuario } from '@/lib/types'
+import { ListaVeterinariosView } from './lista-veterinarios-view'
 
 interface DashboardViewProps {
   servicios: Servicios[]
   onLogin: () => void
+  onListaVeterinarios: () => void
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -34,7 +36,7 @@ const iconMap: Record<string, React.ElementType> = {
   Radiografía: ScanLine,
 }
 
-export function DashboardView({ servicios, onLogin }: DashboardViewProps) {
+export function DashboardView({ servicios, onLogin, onListaVeterinarios }: DashboardViewProps) {
   const featuredServices = servicios.slice(0, 6)
 
   return (
@@ -60,11 +62,11 @@ export function DashboardView({ servicios, onLogin }: DashboardViewProps) {
         <div className="relative mx-auto max-w-7xl">
           <div className="max-w-2xl py-8 lg:min-h-[38rem] lg:py-14">
             <Badge className="mb-5 rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold tracking-[0.18em] text-white uppercase shadow-sm hover:bg-slate-900">
-              Cuidado veterinario con calidez real
+              Cuidado de tus macotas tabasqueñas
             </Badge>
 
             <h1 className="max-w-xl text-5xl font-black leading-[0.95] tracking-tight text-slate-950 sm:text-6xl lg:text-7xl">
-              Salud animal con una imagen más humana.
+              Cuidado de mascotas en Tabasco nunca pudo ser tan fácil.
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-8 text-slate-600 sm:text-xl">
@@ -148,9 +150,6 @@ export function DashboardView({ servicios, onLogin }: DashboardViewProps) {
                       >
                         <Icon className="h-6 w-6" />
                       </div>
-                      <div className="rounded-full bg-slate-950 px-4 py-1.5 text-sm font-semibold text-white">
-                        ${Number(servicio.precio).toFixed(2)}
-                      </div>
                     </div>
                     <CardTitle className="pt-4 text-2xl font-bold text-slate-950">
                       {servicio.nombre}
@@ -160,10 +159,11 @@ export function DashboardView({ servicios, onLogin }: DashboardViewProps) {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
+                    
                     <Button
                       variant="ghost"
                       className="h-12 w-full justify-between rounded-full bg-slate-100 px-5 text-sm font-semibold text-slate-800 hover:bg-slate-950 hover:text-white"
-                      onClick={onLogin}
+                      onClick={() => onListaVeterinarios()}
                     >
                       Agendar este servicio
                       <ArrowRight className="h-4 w-4" />

@@ -108,7 +108,10 @@ export default function MediVetApp() {
     },
     [nombresUsuarios]
   )
-
+  const handleListaVeterinarios = useCallback(() => {
+    setCurrentView('veterinarios_lista')
+  }, [])
+  
   const handleLogin = useCallback((user: Usuario, fullName: string) => {
     setCurrentUser(user)
     setNombresUsuarios((prev) => ({ ...prev, [user.id]: fullName }))
@@ -206,9 +209,20 @@ export default function MediVetApp() {
         }
 
         const mascota = mascotas.find((item) => item.Nombre === cita.mascota)
-        const profesional = veterinarioServicios.find(
-          (item) => item.veterinario_nombre === cita.veterinario && item.fk_servicio === servicios.find((s) => s.nombre === cita.servicio)?.id_servicio
+        const servicio = servicios.find((s) => s.nombre === cita.servicio)
+        
+        // Buscar veterinario por nombre
+        const veterinario = veterinarioServicios.find(
+          (v) => v.veterinario_nombre === cita.veterinario
         )
+        
+        // Verificar que el veterinario ofrece el servicio
+        const profesional = veterinario && servicio 
+          ? veterinarioServicios.find(
+              (item) => item.fk_veterinario === veterinario.fk_veterinario && 
+                       item.fk_servicio === servicio.id_servicio
+            )
+          : null
 
         if (!mascota || !profesional) {
           throw new Error('No se pudo relacionar la cita con la base de datos')
@@ -286,6 +300,7 @@ export default function MediVetApp() {
           <VeterinarioView 
             cartillas={cartillas}
             mascotas={mascotas}
+            tratamientos={tratamientos}
             onCreateCartilla={handleCreateCartilla}
             onUpdateCartilla={handleUpdateCartilla}
           />
@@ -353,6 +368,7 @@ export default function MediVetApp() {
           <div className="flex flex-col">
             <DashboardView 
               servicios={servicios} 
+              onListaVeterinarios={handleListaVeterinarios}
               onLogin={() => setCurrentView('login')} 
             />
             {/* SECCIÓN DE BENEFICIOS (Se activa con el botón central de Conocer más) */}

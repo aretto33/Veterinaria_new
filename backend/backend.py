@@ -161,39 +161,39 @@ def bootstrap():
                 "diagnostico": row[3],
                 "receta_medicamento": row[4],
                 "fk_mascota": row[5],
-                "fk_veterinanio": row[6],
-                "fk_desparacitacio_vacuna": row[7],
+                "fk_veterinario": row[6],
+                "fk_tratamiento": row[7],
             }
             for row in cursor.fetchall()
         ]
 
         cursor.execute(
             """
-            SELECT vd.pk_tratamiento, vd.fecha_aplicacion, vd.fk_medicamento, vd.fk_servicio,
+            SELECT t.pk_tratamiento, t.fecha_aplicacion, t.fk_medicamento, t.fk_servicio,
                    m.nombre, m.descripcion, s.nombre
-            FROM Vacuna_Desparacitacion vd
-            LEFT JOIN Medicamentos m ON m.pk_medicamento = vd.fk_medicamento
-            LEFT JOIN Servicios s ON s.pk_servicio = vd.fk_servicio
-            ORDER BY vd.pk_tratamiento
+            FROM Tratamientos t
+            LEFT JOIN Medicamentos m ON m.pk_medicamento = t.fk_medicamento
+            LEFT JOIN Servicios s ON s.pk_servicio = t.fk_servicio
+            ORDER BY t.pk_tratamiento
             """
         )
         tratamientos = [
             {
+                "pk_tratamiento": row[0],
                 "id_tratamiento": row[0],
                 "fecha_aplicacion": row[1],
                 "fk_medicamento": row[2],
                 "fk_servicio": row[3],
-                "nombre_producto": row[4] or "Tratamiento",
+                "nombre": row[4] or "Tratamiento",
                 "descripcion": row[5] or "",
                 "servicio_nombre": row[6] or "",
-                "tipo": row[6] or "",
             }
             for row in cursor.fetchall()
         ]
 
         cursor.execute(
             """
-            SELECT vs.fk_veterinario, vs.fk_servicio, vs.precio_vet,
+            SELECT vs.fk_veterinario, vs.fk_servicio, vs.precio,
                    p.nombre, p.apellidos, v.especialidad, p.telefono, v.direcc_consultorio
             FROM Veterinario_Servicio vs
             INNER JOIN Veterinario v ON v.pk_veterinario = vs.fk_veterinario
@@ -621,6 +621,7 @@ def subir_perfil(user_id):
         conn.close()
 
 
+
 @app.post("/api/mascotas")
 def create_mascota():
     data = request.get_json(silent=True) or {}
@@ -681,8 +682,8 @@ def create_cartilla():
         "peso",
         "diagnostico",
         "receta_medicamento",
-        "fk_veterinanio",
-        "fk_desparacitacio_vacuna",
+        "fk_veterinario",
+        "fk_tratamiento",
     ]
     missing_fields = [field for field in required_fields if data.get(field) in (None, "")]
     if missing_fields:
@@ -736,7 +737,6 @@ def create_cartilla():
         return validation_error(f"No se pudo crear la cartilla: {error}", 500)
     finally:
         conn.close()
-
 
 @app.put("/api/cartillas/<int:cartilla_id>")
 def update_cartilla(cartilla_id):

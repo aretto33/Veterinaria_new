@@ -10,3 +10,5 @@ node_modules/
 .DS_Store
 .data/types.ts
 .backend/venv
+.backend/.venv
+.venv

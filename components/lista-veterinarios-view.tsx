@@ -37,31 +37,6 @@ interface ServicioConEspecialistas extends Servicios {
   profesionales: ServicioProfesional[]
 }
 
-const veterinariosPlantilla: ServicioProfesional[] = [
-  {
-    id: 9001,
-    nombre: 'Dra. Mariana López',
-    especialidad: 'Medicina preventiva y consulta general',
-    direccion: 'Av. Paseo de las Flores 214, Consultorio 3',
-    telefono: '993 215 4487',
-    precio: 380,
-    disponibilidad: 'Lunes, Miércoles y Viernes',
-    horario: '09:00-13:00 • 16:00-19:00',
-    horariosDisponibles: ['09:00', '10:00', '12:00', '16:00'],
-  },
-  {
-    id: 9002,
-    nombre: 'Dr. Carlos Méndez',
-    especialidad: 'Pequeñas especies y seguimiento clínico',
-    direccion: 'Calle Río Usumacinta 58, Consultorio 5',
-    telefono: '993 184 2261',
-    precio: 420,
-    disponibilidad: 'Martes, Jueves y Sábado',
-    horario: '10:00-14:00 • 17:00-20:00',
-    horariosDisponibles: ['10:00', '11:30', '13:00', '17:00'],
-  },
-]
-
 export function ListaVeterinariosView({
   servicios,
   mascotas,
@@ -105,13 +80,7 @@ export function ListaVeterinariosView({
             }
           })
 
-        const profesionales =
-          profesionalesReales.length > 0
-            ? profesionalesReales
-            : veterinariosPlantilla.map((profesional, index) => ({
-                ...profesional,
-                precio: Number((servicio.precio + index * 60).toFixed(2)),
-              }))
+        const profesionales = profesionalesReales.length > 0 ? profesionalesReales : []
 
         return {
           ...servicio,
@@ -165,6 +134,10 @@ export function ListaVeterinariosView({
         <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Servicios Disponibles</h2>
         <p className="text-slate-500 text-lg">
           Elige el servicio que necesitas y agenda ahí mismo con el veterinario que prefieras.
+        </p>
+        {/* DEBUG */}
+        <p className="text-xs text-gray-400 mt-2">
+          Debug: Servicios={servicios.length}, Vets={veterinarioServicios.length}, Agenda={agendaVeterinarios.length}
         </p>
       </div>
 

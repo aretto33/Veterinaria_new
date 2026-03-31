@@ -87,11 +87,19 @@ CREATE TABLE Citas (
     FOREIGN KEY (fk_mascota) REFERENCES Mascotas(pk_mascota)
 );
 
-CREATE TABLE Vacuna_Desparacitacion (
+CREATE TABLE Medicamentos (
+    pk_medicamento INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100),
+    descripcion VARCHAR(200)
+);
+
+CREATE TABLE Tratamientos (
     pk_tratamiento INT AUTO_INCREMENT PRIMARY KEY,
-    tipo VARCHAR(50),
-    nombre_producto VARCHAR(100),
-    fecha_aplicacion DATE
+    fecha_aplicacion DATE,
+    fk_medicamento INT,
+    fk_servicio INT,
+    FOREIGN KEY (fk_medicamento) REFERENCES Medicamentos(pk_medicamento),
+    FOREIGN KEY (fk_servicio) REFERENCES Servicios(pk_servicio)
 );
 
 CREATE TABLE Cartilla_Vacunacion (
@@ -105,7 +113,7 @@ CREATE TABLE Cartilla_Vacunacion (
     fk_tratamiento INT,
     FOREIGN KEY (fk_mascota) REFERENCES Mascotas(pk_mascota),
     FOREIGN KEY (fk_veterinario) REFERENCES Veterinario(pk_veterinario),
-    FOREIGN KEY (fk_tratamiento) REFERENCES Vacuna_Desparacitacion(pk_tratamiento)
+    FOREIGN KEY (fk_tratamiento) REFERENCES Tratamientos(pk_tratamiento)
 );
 
 INSERT INTO Rol (nombre, descripcion) VALUES
@@ -136,3 +144,22 @@ CREATE TABLE Agenda_Veterinario (
     disponible BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (fk_veterinario) REFERENCES Veterinario(pk_veterinario)
 );
+
+-- 1. Primero verifica que existan veterinarios
+SELECT * FROM Veterinario;
+
+-- 2. Después verifica que existan servicios
+SELECT * FROM Servicios;
+
+-- 3. Luego inserta relación veterinario-servicio
+INSERT INTO Veterinario_Servicio (fk_veterinario, fk_servicio, precio) 
+VALUES 
+  (1, 1, 150000),  -- Veterinario 1 ofrece Servicio 1 por $150k
+  (1, 2, 120000),
+  (2, 1, 160000);  -- Veterinario 2 ofrece Servicio 1 por $160k
+
+-- 4. Verifica el resultado
+SELECT vs.*, v.especialidad, p.nombre, p.apellidos 
+FROM Veterinario_Servicio vs
+INNER JOIN Veterinario v ON v.pk_veterinario = vs.fk_veterinario
+INNER JOIN Perfil_Usuario p ON p.fk_usuario = v.fk_usuario;
