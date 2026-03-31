@@ -194,10 +194,11 @@ def bootstrap():
         cursor.execute(
             """
             SELECT vs.fk_veterinario, vs.fk_servicio, vs.precio,
-                   p.nombre, p.apellidos, v.especialidad, p.telefono, v.direcc_consultorio
+                   COALESCE(p.nombre, 'Veterinario'), COALESCE(p.apellidos, ''),
+                   v.especialidad, COALESCE(p.telefono, 0), v.direcc_consultorio
             FROM Veterinario_Servicio vs
             INNER JOIN Veterinario v ON v.pk_veterinario = vs.fk_veterinario
-            INNER JOIN Perfil_Usuario p ON p.fk_usuario = v.fk_usuario
+            LEFT JOIN Perfil_Usuario p ON p.fk_usuario = v.fk_usuario
             ORDER BY vs.fk_servicio, vs.fk_veterinario
             """
         )

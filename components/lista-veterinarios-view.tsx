@@ -135,10 +135,6 @@ export function ListaVeterinariosView({
         <p className="text-slate-500 text-lg">
           Elige el servicio que necesitas y agenda ahí mismo con el veterinario que prefieras.
         </p>
-        {/* DEBUG */}
-        <p className="text-xs text-gray-400 mt-2">
-          Debug: Servicios={servicios.length}, Vets={veterinarioServicios.length}, Agenda={agendaVeterinarios.length}
-        </p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -158,9 +154,14 @@ export function ListaVeterinariosView({
                     <p className="text-slate-600 mt-1 max-w-xl">{servicio.descripción}</p>
                   </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Desde</p>
-                </div>
+                {servicio.profesionales.length > 0 && (
+                  <div className="text-right shrink-0">
+                    <p className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Desde</p>
+                    <p className="text-lg font-bold text-slate-900">
+                      ${Math.min(...servicio.profesionales.map((p) => p.precio)).toFixed(2)}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -170,11 +171,6 @@ export function ListaVeterinariosView({
                 {servicio.profesionales.length} veterinario(s) disponibles para este servicio
               </div>
 
-              {veterinarioServicios.filter((item) => item.fk_servicio === servicio.id_servicio).length === 0 && (
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                  Mostrando veterinarios de plantilla mientras completas la información real en la base de datos.
-                </div>
-              )}
 
               {servicio.profesionales.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
