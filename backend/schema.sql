@@ -97,7 +97,7 @@ CREATE TABLE Tratamientos (
     pk_tratamiento INT AUTO_INCREMENT PRIMARY KEY,
     fecha_aplicacion DATE,
     fk_medicamento INT,
-    fk_servicio INT,
+    fk_servicio_veterinario INT,
     FOREIGN KEY (fk_medicamento) REFERENCES Medicamentos(pk_medicamento),
     FOREIGN KEY (fk_servicio) REFERENCES Servicios(pk_servicio)
 );
@@ -118,13 +118,25 @@ CREATE TABLE Cartilla_Vacunacion (
 
 INSERT INTO Rol (nombre, descripcion) VALUES
 ('Cliente', 'Usuario cliente del sistema'),
-('Veterinario', 'Profesional veterinario');
+('Veterinario', 'Profesional veterinario'),
+('Administrador', 'Administrador del sistema');
 
+-- ===== CREDENCIAL FIJA ADMINISTRADOR =====
+-- Email: admin@medivet.com
+-- Contraseña: Admin@2024
+-- ==========================================
+INSERT INTO Usuario (nombre_usuario, email, contraseña_hash, fk_rol)
+VALUES ('admin', 'admin@medivet.com', 'scrypt:32768:8:1$67hQHxZyJNshDzqf$6ed6b570942f411980eb4f0d32c9415f33df0af1bcc0d40dbaeb333896316b23351f5be55a9c628fb3971e692d951c280c03b47d642958ace7ca935143bd3618', 3);
 
-SELECT pk_rol, nombre FROM Rol;
+INSERT INTO Perfil_Usuario (fk_usuario, telefono, nombre, apellidos)
+VALUES (1, 3005551234, 'Administrador', 'Sistema');
 
+-- Usuario de prueba Cliente
 INSERT INTO Usuario (nombre_usuario, email, contraseña_hash, fk_rol)
 VALUES ('juan', 'juan@mail.com', '123456', 1);
+
+INSERT INTO Perfil_Usuario (fk_usuario, telefono, nombre, apellidos)
+VALUES (2, 3015551234, 'Juan', 'Pérez');
 
 
 CREATE TABLE Veterinario_Servicio (

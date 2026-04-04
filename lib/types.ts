@@ -89,7 +89,6 @@ export interface Servicios {
 
 // Cartilla_Vacunación
 export interface Cartilla_Vacunacion {
-  tratamiento: string
   id: number
   fecha_atencion: string // date
   peso: number // float
@@ -98,6 +97,7 @@ export interface Cartilla_Vacunacion {
   fk_mascota: number
   fk_veterinanio: number
   fk_tratamiento: number
+  tratamiento: string
 }
 
 // Medicamentos
@@ -112,7 +112,7 @@ export interface Tratamientos {
   pk_tratamiento: number
   fecha_aplicacion: string // date
   fk_medicamento: number | null
-  fk_servicio: number | null
+  fk_servicio_veterinario: number | null
 }
 
 // Alias para compatibilidad con código existente
@@ -130,6 +130,7 @@ export interface VeterinarioAgenda {
 }
 
 export interface VeterinarioServicio {
+  pk_veterinario_servicio: number
   fk_veterinario: number
   fk_servicio: number
   precio: number

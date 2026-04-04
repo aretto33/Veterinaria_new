@@ -21,13 +21,15 @@ import { SettingsView } from '@/components/settings-view'
 import { CartillasView } from '@/components/cartillas-view'
 import { CalendarioView } from '@/components/calendario-view'
 import { ListaVeterinariosView } from '@/components/lista-veterinarios-view'
+import { AdminServiciosView } from '@/components/admin-servicios-view'
+import { AdminVeterinarioServicioView } from '@/components/admin-veterinario-servicio-view'
 import { Menu, X, ShieldCheck, Smartphone, MessageCircle, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
 
-type View = 'dashboard' | 'login' | 'veterinario' | 'cliente' | 'cartillas' | 'calendario' | 'citas' | 'settings' | 'veterinarios_lista'
+type View = 'dashboard' | 'login' | 'veterinario' | 'cliente' | 'cartillas' | 'calendario' | 'citas' | 'settings' | 'veterinarios_lista' | 'admin_servicios' | 'admin_veterinario_servicio'
 
 export default function MediVetApp() {
   const [currentView, setCurrentView] = useState<View>('dashboard')
@@ -165,7 +167,8 @@ export default function MediVetApp() {
       })
 
       if (!response.ok) {
-        throw new Error('No se pudo actualizar la cartilla')
+        const errorData = await response.json().catch(() => ({message: 'Error desconocido por el servidor'}))
+        throw new Error(`No se pudo actualizar la cartilla: ${errorData.message} || ${response.statusText}`)
       }
 
       const savedCartilla: Cartilla_Vacunacion = await response.json()
@@ -173,7 +176,138 @@ export default function MediVetApp() {
       toast.success('Cartilla actualizada exitosamente')
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'No se pudo actualizar la cartilla'
+        error instanceof Error ? error.message : 'No se pudo actualizar la cartilla' 
+      toast.error(message)
+    }
+  }, [])
+
+  const handleCreateServicio = useCallback(async (servicio: Omit<Servicios, 'id_servicio'>) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/servicios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(servicio),
+      })
+
+      if (!response.ok) {
+        throw new Error('No se pudo crear el servicio')
+      }
+
+      const newServicio: Servicios = await response.json()
+      setServicios((prev) => [...prev, newServicio])
+      toast.success('Servicio creado exitosamente')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo crear el servicio'
+      toast.error(message)
+    }
+  }, [])
+
+  const handleUpdateServicio = useCallback(async (updatedServicio: Servicios) => {
+    try {
+      const { id_servicio, ...payload } = updatedServicio
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/servicios/${id_servicio}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        throw new Error('No se pudo actualizar el servicio')
+      }
+
+      const savedServicio: Servicios = await response.json()
+      setServicios((prev) => prev.map((item) => (item.id_servicio === savedServicio.id_servicio ? savedServicio : item)))
+      toast.success('Servicio actualizado exitosamente')
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'No se pudo actualizar el servicio'
+      toast.error(message)
+    }
+  }, [])
+
+  const handleDeleteServicio = useCallback(async (id: number) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/servicios/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('No se pudo eliminar el servicio')
+      }
+
+      setServicios((prev) => prev.filter((item) => item.id_servicio !== id))
+      toast.success('Servicio eliminado exitosamente')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo eliminar el servicio'
+      toast.error(message)
+    }
+  }, [])
+
+  const handleCreateVeterinarioServicio = useCallback(async (servicio: Omit<VeterinarioServicio, 'veterinario_nombre' | 'especialidad' | 'telefono' | 'direccion'>) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/veterinario_servicios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(servicio),
+      })
+
+      if (!response.ok) {
+        throw new Error('No se pudo crear el servicio veterinario')
+      }
+
+      const created = await response.json()
+      setVeterinarioServicios((prev) => [...prev, created])
+      toast.success('Servicio veterinario creado')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al crear servicio veterinario'
+      toast.error(message)
+    }
+  }, [])
+
+  const handleUpdateVeterinarioServicio = useCallback(async (servicio: VeterinarioServicio) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/veterinario_servicio/${servicio.fk_veterinario}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(servicio),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({message: 'Error desconocido por el servidor'}))
+        throw new Error(`No se pudo actualizar la servicio: ${errorData.message} || ${response.statusText}`)
+        
+      }
+
+      const updated = await response.json()
+      setVeterinarioServicios((prev) => prev.map((it) => it.fk_veterinario === updated.fk_veterinario && it.fk_servicio === updated.fk_servicio ? updated : it))
+      toast.success('Servicio veterinario actualizado')
+      const fetchVeterinarioServicios = async () => {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/veterinario_servicio`)
+  const data = await res.json()
+  setVeterinarioServicios(data)
+}
+
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al actualizar servicio veterinario'
+      toast.error(message)
+    }
+  }, [])
+
+  const handleDeleteVeterinarioServicio = useCallback(async (payload: { fk_veterinario: number; fk_servicio: number }) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/veterinario-servicios/${payload.fk_veterinario}/${payload.fk_servicio}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('No se pudo eliminar el servicio veterinario')
+      }
+
+      setVeterinarioServicios((prev) => prev.filter((it) => !(it.fk_veterinario === payload.fk_veterinario && it.fk_servicio === payload.fk_servicio)))
+      toast.success('Servicio veterinario eliminado')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al eliminar servicio veterinario'
       toast.error(message)
     }
   }, [])
@@ -311,6 +445,28 @@ export default function MediVetApp() {
 
       case 'calendario':
         return <CalendarioView />
+
+      case 'admin_servicios':
+        return (
+          <AdminServiciosView
+            servicios={servicios}
+            onCreateServicio={handleCreateServicio}
+            onUpdateServicio={handleUpdateServicio}
+            onDeleteServicio={handleDeleteServicio}
+          />
+        )
+
+      case 'admin_veterinario_servicio':
+        return (
+          <AdminVeterinarioServicioView
+            servicios={servicios}
+            veterinarioServicios={veterinarioServicios}
+            agendaVeterinarios={agendaVeterinarios}
+            onCreateVeterinarioServicio={handleCreateVeterinarioServicio}
+            onUpdateVeterinarioServicio={handleUpdateVeterinarioServicio}
+            onDeleteVeterinarioServicio={handleDeleteVeterinarioServicio}
+          />
+        )
 
       case 'cliente':
         return (

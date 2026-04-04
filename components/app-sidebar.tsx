@@ -8,7 +8,8 @@ import {
   FileText, 
   LogOut,
   Settings,
-  User
+  User,
+  Wrench
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -33,6 +34,7 @@ export function AppSidebar({
         { id: 'veterinario', label: 'Panel Veterinario', icon: Stethoscope },
         { id: 'cartillas', label: 'Cartillas', icon: FileText },
         { id: 'calendario', label: 'Calendario', icon: Calendar },
+        { id: 'admin_veterinario_servicio', label: 'Servicios Veterinario', icon: Wrench },
       ]
     : userRole === 1 // Cliente
    ? [
