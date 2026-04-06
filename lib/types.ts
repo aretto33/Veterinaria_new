@@ -55,6 +55,7 @@ export interface Citas {
   fk_Cliente: number
   fk_veterinario: number
   fk_Mascota: number
+  fk_tratamiento: number 
 }
 
 export interface CitaAgendada {
@@ -95,19 +96,29 @@ export interface Cartilla_Vacunacion {
   receta_medicamento: string
   fk_mascota: number
   fk_veterinanio: number
-  fk_desparacitacio_vacuna: number
+  fk_tratamiento: number
+  tratamiento: string
 }
 
-// Vacuna_desparacitación
-export interface Vacuna_desparacitacion {
-  id_tratamiento: number
-  tipo?: string
-  nombre_producto: string
-  fecha_aplicacion: string // date
-  fk_medicamento?: number | null
-  fk_servicio?: number | null
-  servicio_nombre?: string
+// Medicamentos
+export interface Medicamentos {
+  pk_medicamento: number
+  nombre: string
   descripcion?: string
+}
+
+// Tratamientos
+export interface Tratamientos {
+  pk_tratamiento: number
+  fecha_aplicacion: string // date
+  fk_medicamento: number | null
+  fk_servicio_veterinario: number | null
+}
+
+// Alias para compatibilidad con código existente
+export interface Vacuna_desparacitacion extends Tratamientos {
+  id_tratamiento?: number
+  nombre?: string
 }
 
 export interface VeterinarioAgenda {
@@ -119,6 +130,7 @@ export interface VeterinarioAgenda {
 }
 
 export interface VeterinarioServicio {
+  pk_veterinario_servicio: number
   fk_veterinario: number
   fk_servicio: number
   precio: number

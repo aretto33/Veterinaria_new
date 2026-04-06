@@ -136,7 +136,7 @@ export function ClienteView({
     .filter((cartilla) => cartilla.fk_mascota === selectedMascotaId)
     .map((cartilla) => {
       const tratamiento = tratamientos.find(
-        (vacuna) => vacuna.id_tratamiento === cartilla.fk_desparacitacio_vacuna
+        (vacuna) => vacuna.id_tratamiento === cartilla.fk_tratamiento
       )
 
       return {
@@ -405,7 +405,7 @@ export function ClienteView({
                 </div>
                 <Badge variant="secondary">
                   Último evento:{' '}
-                  {selectedMascotaCartillas[0]?.tratamiento?.tipo || 'Sin registros'}
+                  {selectedMascotaCartillas[0]?.fecha_atencion || 'Sin registros'}
                 </Badge>
               </div>
             ) : (
@@ -612,7 +612,7 @@ export function ClienteView({
                   ) : (
                     <div className="space-y-4">
                       {selectedMascotaCartillas.map((registro) => {
-                        const styles = getTreatmentStyles(registro.tratamiento?.tipo)
+                        const styles = getTreatmentStyles(registro.tratamiento?.nombre)
                         const TreatmentIcon = styles.icon
 
                         return (
@@ -628,14 +628,14 @@ export function ClienteView({
                                 <div>
                                   <div className="flex flex-wrap items-center gap-2">
                                     <p className="text-lg font-bold">
-                                      {registro.tratamiento?.nombre_producto || 'Tratamiento registrado'}
+                                      {registro.tratamiento?.fk_servicio_veterinario || 'Tratamiento registrado'}
                                     </p>
                                     <Badge variant="outline" className={styles.badge}>
-                                      {registro.tratamiento?.tipo || 'Aplicación'}
+                                      {registro.tratamiento?.fk_medicamento || 'Aplicación'}
                                     </Badge>
                                   </div>
                                   <p className="mt-1 text-sm text-muted-foreground">
-                                    Fecha de atención: {String(registro.fecha_atencion)}
+                                    Fecha de aplicación: {String(registro.fecha_atencion)}
                                   </p>
                                 </div>
                               </div>

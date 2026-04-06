@@ -104,7 +104,8 @@ export function LoginView({ onLogin, onBack }: LoginViewProps) {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/register`, {
+      console.log("ENV:", process.env.NEXT_PUBLIC_API_URL);
+      const response = await  fetch(`${process.env.NEXT_PUBLIC_API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

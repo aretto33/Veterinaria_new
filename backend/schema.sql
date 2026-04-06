@@ -87,11 +87,19 @@ CREATE TABLE Citas (
     FOREIGN KEY (fk_mascota) REFERENCES Mascotas(pk_mascota)
 );
 
-CREATE TABLE Vacuna_Desparacitacion (
+CREATE TABLE Medicamentos (
+    pk_medicamento INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100),
+    descripcion VARCHAR(200)
+);
+
+CREATE TABLE Tratamientos (
     pk_tratamiento INT AUTO_INCREMENT PRIMARY KEY,
-    tipo VARCHAR(50),
-    nombre_producto VARCHAR(100),
-    fecha_aplicacion DATE
+    fecha_aplicacion DATE,
+    fk_medicamento INT,
+    fk_servicio_veterinario INT,
+    FOREIGN KEY (fk_medicamento) REFERENCES Medicamentos(pk_medicamento),
+    FOREIGN KEY (fk_servicio) REFERENCES Servicios(pk_servicio)
 );
 
 CREATE TABLE Cartilla_Vacunacion (
@@ -105,18 +113,30 @@ CREATE TABLE Cartilla_Vacunacion (
     fk_tratamiento INT,
     FOREIGN KEY (fk_mascota) REFERENCES Mascotas(pk_mascota),
     FOREIGN KEY (fk_veterinario) REFERENCES Veterinario(pk_veterinario),
-    FOREIGN KEY (fk_tratamiento) REFERENCES Vacuna_Desparacitacion(pk_tratamiento)
+    FOREIGN KEY (fk_tratamiento) REFERENCES Tratamientos(pk_tratamiento)
 );
 
 INSERT INTO Rol (nombre, descripcion) VALUES
 ('Cliente', 'Usuario cliente del sistema'),
-('Veterinario', 'Profesional veterinario');
+('Veterinario', 'Profesional veterinario'),
+('Administrador', 'Administrador del sistema');
 
+-- ===== CREDENCIAL FIJA ADMINISTRADOR =====
+-- Email: admin@medivet.com
+-- Contraseña: Admin@2024
+-- ==========================================
+INSERT INTO Usuario (nombre_usuario, email, contraseña_hash, fk_rol)
+VALUES ('admin', 'admin@medivet.com', 'scrypt:32768:8:1$67hQHxZyJNshDzqf$6ed6b570942f411980eb4f0d32c9415f33df0af1bcc0d40dbaeb333896316b23351f5be55a9c628fb3971e692d951c280c03b47d642958ace7ca935143bd3618', 3);
 
-SELECT pk_rol, nombre FROM Rol;
+INSERT INTO Perfil_Usuario (fk_usuario, telefono, nombre, apellidos)
+VALUES (1, 3005551234, 'Administrador', 'Sistema');
 
+-- Usuario de prueba Cliente
 INSERT INTO Usuario (nombre_usuario, email, contraseña_hash, fk_rol)
 VALUES ('juan', 'juan@mail.com', '123456', 1);
+
+INSERT INTO Perfil_Usuario (fk_usuario, telefono, nombre, apellidos)
+VALUES (2, 3015551234, 'Juan', 'Pérez');
 
 
 CREATE TABLE Veterinario_Servicio (
@@ -136,3 +156,22 @@ CREATE TABLE Agenda_Veterinario (
     disponible BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (fk_veterinario) REFERENCES Veterinario(pk_veterinario)
 );
+
+-- 1. Primero verifica que existan veterinarios
+SELECT * FROM Veterinario;
+
+-- 2. Después verifica que existan servicios
+SELECT * FROM Servicios;
+
+-- 3. Luego inserta relación veterinario-servicio
+INSERT INTO Veterinario_Servicio (fk_veterinario, fk_servicio, precio) 
+VALUES 
+  (1, 1, 150000),  -- Veterinario 1 ofrece Servicio 1 por $150k
+  (1, 2, 120000),
+  (2, 1, 160000);  -- Veterinario 2 ofrece Servicio 1 por $160k
+
+-- 4. Verifica el resultado
+SELECT vs.*, v.especialidad, p.nombre, p.apellidos 
+FROM Veterinario_Servicio vs
+INNER JOIN Veterinario v ON v.pk_veterinario = vs.fk_veterinario
+INNER JOIN Perfil_Usuario p ON p.fk_usuario = v.fk_usuario;

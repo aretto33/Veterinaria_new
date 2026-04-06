@@ -1,7 +1,7 @@
 import os
 import mariadb
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory, Response
+from flask import Flask, jsonify, request, send_from_directory, Response, session
 from PIL import Image, UnidentifiedImageError
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -161,39 +161,29 @@ def bootstrap():
                 "diagnostico": row[3],
                 "receta_medicamento": row[4],
                 "fk_mascota": row[5],
-                "fk_veterinanio": row[6],
-                "fk_desparacitacio_vacuna": row[7],
+                "fk_veterinario": row[6],
+                "fk_tratamiento": row[7],
             }
             for row in cursor.fetchall()
         ]
 
         cursor.execute(
             """
-            SELECT vd.pk_tratamiento, vd.fecha_aplicacion, vd.fk_medicamento, vd.fk_servicio,
-                   m.nombre, m.descripcion, s.nombre
-            FROM Vacuna_Desparacitacion vd
-            LEFT JOIN Medicamentos m ON m.pk_medicamento = vd.fk_medicamento
-            LEFT JOIN Servicios s ON s.pk_servicio = vd.fk_servicio
-            ORDER BY vd.pk_tratamiento
+            SELECT nombre, descripcion FROM Tratamientos
             """
         )
         tratamientos = [
             {
-                "id_tratamiento": row[0],
-                "fecha_aplicacion": row[1],
-                "fk_medicamento": row[2],
-                "fk_servicio": row[3],
-                "nombre_producto": row[4] or "Tratamiento",
-                "descripcion": row[5] or "",
-                "servicio_nombre": row[6] or "",
-                "tipo": row[6] or "",
+                "pk_tratamiento": row[0],
+                "nombre": row[0],
+                "descripcion": row[1],
             }
             for row in cursor.fetchall()
         ]
 
         cursor.execute(
             """
-            SELECT vs.fk_veterinario, vs.fk_servicio, vs.precio_vet,
+            SELECT vs.fk_veterinario, vs.fk_servicio, vs.precio,
                    p.nombre, p.apellidos, v.especialidad, p.telefono, v.direcc_consultorio
             FROM Veterinario_Servicio vs
             INNER JOIN Veterinario v ON v.pk_veterinario = vs.fk_veterinario
@@ -621,6 +611,7 @@ def subir_perfil(user_id):
         conn.close()
 
 
+
 @app.post("/api/mascotas")
 def create_mascota():
     data = request.get_json(silent=True) or {}
@@ -681,8 +672,7 @@ def create_cartilla():
         "peso",
         "diagnostico",
         "receta_medicamento",
-        "fk_veterinanio",
-        "fk_desparacitacio_vacuna",
+        "fk_tratamiento",
     ]
     missing_fields = [field for field in required_fields if data.get(field) in (None, "")]
     if missing_fields:
@@ -697,7 +687,7 @@ def create_cartilla():
     try:
         cursor.execute(
             """
-            INSERT INTO cartillas_vacunacion (
+            INSERT INTO Cartilla_Vacunacion (
                 fecha_atencion, peso, diagnostico, receta_medicamento,
                 fk_mascota, fk_veterinario, fk_tratamiento
             )
@@ -709,7 +699,7 @@ def create_cartilla():
                 data["diagnostico"],
                 data["receta_medicamento"],
                 int(data["fk_mascota"]),
-                int(data["fk_veterinanio"]),
+                int(data.get("fk_veterinanio", 0)),
                 int(data["fk_tratamiento"]),
             ),
         )
@@ -737,10 +727,11 @@ def create_cartilla():
     finally:
         conn.close()
 
-
 @app.put("/api/cartillas/<int:cartilla_id>")
 def update_cartilla(cartilla_id):
     data = request.get_json(silent=True) or {}
+
+
 
     conn, cursor = conectar_bd()
     if not conn:
@@ -749,24 +740,22 @@ def update_cartilla(cartilla_id):
     try:
         cursor.execute(
             """
-            UPDATE cartillas_vacunacion
-            SET fecha_atencion = %s,
-                peso = %s,
+            UPDATE Cartilla_Vacunacion
+            SET peso = %s,
                 diagnostico = %s,
                 receta_medicamento = %s,
                 fk_mascota = %s,
                 fk_veterinario = %s,
                 fk_tratamiento = %s
-            WHERE id = %s
+            WHERE pk_cartilla = %s
             """,
             (
-                data["fecha_atencion"],
                 float(data["peso"]),
                 data["diagnostico"],
                 data["receta_medicamento"],
                 int(data["fk_mascota"]),
-                int(data["fk_veterinanio"]),
-                int(data["fk_desparacitacio_vacuna"]),
+                int(data.get("fk_veterinario", 0)),
+                int(data["fk_tratamiento"]),
                 cartilla_id,
             ),
         )
@@ -779,12 +768,11 @@ def update_cartilla(cartilla_id):
         return jsonify(
             {
                 "id": cartilla_id,
-                "fecha_atencion": data["fecha_atencion"],
                 "peso": float(data["peso"]),
                 "diagnostico": data["diagnostico"],
                 "receta_medicamento": data["receta_medicamento"],
                 "fk_mascota": int(data["fk_mascota"]),
-                "fk_veterinanio": int(data["fk_veterinanio"]),
+                "fk_veterinario": int(data.get("fk_veterinario", 0)),
                 "fk_tratamiento": int(data["fk_tratamiento"]),
             }
         )
@@ -859,6 +847,179 @@ def delete_cita(cita_id):
     except mariadb.Error as error:
         conn.rollback()
         return validation_error(f"No se pudo cancelar la cita: {error}", 500)
+    finally:
+        conn.close()
+
+
+#-----------------------------------------------------------------------------
+# SERVICIOS ENDPOINTS
+#-----------------------------------------------------------------------------
+@app.get("/api/servicios")
+def get_servicios():
+    conn, cursor = conectar_bd()
+    if not conn:
+        return validation_error("No se pudo conectar a la base de datos", 500)
+
+    try:
+        cursor.execute(
+            """
+            SELECT pk_servicio_veterinario, nombre
+            , descripcion, precio
+            FROM Servicios
+            ORDER BY pk_servicio_veterinario
+            """
+        )
+        servicios = [
+            {
+                "id_servicio": row[0],
+                "nombre": row[1],
+                "descripción": row[2] or "",
+                "precio": float(row[3]) if row[3] is not None else 0,
+            }
+            for row in cursor.fetchall()
+        ]
+        return jsonify(servicios)
+    except mariadb.Error as error:
+        return validation_error(f"Error al obtener servicios: {error}", 500)
+    finally:
+        conn.close()
+
+
+@app.post("/api/servicios")
+def create_servicio():
+    data = request.get_json(silent=True) or {}
+    required_fields = ["nombre", "descripcion", "precio"]
+    missing_fields = [field for field in required_fields if data.get(field) in (None, "")]
+    if missing_fields:
+        return validation_error(
+            f"Faltan campos obligatorios: {', '.join(missing_fields)}"
+        )
+
+    conn, cursor = conectar_bd()
+    if not conn:
+        return validation_error("No se pudo conectar a la base de datos", 500)
+
+    try:
+        cursor.execute(
+            """
+            INSERT INTO Servicios (nombre, descripcion, precio)
+            VALUES (%s, %s, %s)
+            """,
+            (data["nombre"], data["descripcion"], data["precio"]),
+        )
+        conn.commit()
+        servicio_id = cursor.lastrowid
+        return jsonify(
+            {
+                "id_servicio": servicio_id,
+                "nombre": data["nombre"],
+                "descripción": data["descripcion"],
+                "precio": data["precio"],
+            }
+        )
+    except mariadb.Error as error:
+        conn.rollback()
+        return validation_error(f"No se pudo crear el servicio: {error}", 500)
+    finally:
+        conn.close()
+
+
+@app.put("/api/servicios/<int:servicio_id>")
+def update_servicio(servicio_id):
+    data = request.get_json(silent=True) or {}
+    required_fields = ["nombre", "descripcion", "precio"]
+    missing_fields = [field for field in required_fields if data.get(field) in (None, "")]
+    if missing_fields:
+        return validation_error(
+            f"Faltan campos obligatorios: {', '.join(missing_fields)}"
+        )
+
+    conn, cursor = conectar_bd()
+    if not conn:
+        return validation_error("No se pudo conectar a la base de datos", 500)
+
+    try:
+        cursor.execute(
+            """
+            UPDATE Servicios
+            SET nombre = %s, descripcion = %s, precio = %s
+            WHERE pk_servicio = %s
+            """,
+            (data["nombre"], data["descripcion"], data["precio"], servicio_id),
+        )
+        if cursor.rowcount == 0:
+            conn.rollback()
+            return validation_error("Servicio no encontrado", 404)
+        conn.commit()
+        return jsonify(
+            {
+                "id_servicio": servicio_id,
+                "nombre": data["nombre"],
+                "descripción": data["descripcion"],
+                "precio": data["precio"],
+            }
+        )
+    except mariadb.Error as error:
+        conn.rollback()
+        return validation_error(f"No se pudo actualizar el servicio: {error}", 500)
+    finally:
+        conn.close()
+    
+
+@app.put("/api/veterinario_servicio/<int:veterinario_servicio_id>")
+def update_veterinario_servicio(veterinario_servicio_id):
+    data = request.get_json(silent=True) or {}
+
+    if "precio" not in data or data["precio"] in (None, ""):    
+        return validation_error("El campo 'precio' es obligatorio"
+        )
+
+    conn, cursor = conectar_bd()
+    if not conn:
+        return validation_error("No se pudo conectar a la base de datos", 500)
+
+    try:
+        cursor.execute(
+            """
+            UPDATE Veterinario_Servicio
+            SET precio = %s
+            WHERE pk_veterinario_servicio = %s
+            """,
+            (data["precio"], veterinario_servicio_id),
+        )
+        if cursor.rowcount == 0:
+            conn.rollback()
+            return validation_error("Servicio no encontrado", 404)
+        conn.commit()
+        return jsonify({
+    "pk_veterinario_servicio": veterinario_servicio_id,
+    "precio": data["precio"],
+})
+    except mariadb.Error as error:
+        conn.rollback()
+        return validation_error(f"No se pudo actualizar el servicio: {error}", 500)
+    finally:
+        conn.close()
+
+
+
+
+@app.delete("/api/servicios/<int:servicio_id>")
+def delete_servicio(servicio_id):
+    conn, cursor = conectar_bd()
+    if not conn:
+        return validation_error("No se pudo conectar a la base de datos", 500)
+
+    try:
+        cursor.execute("DELETE FROM Servicios WHERE pk_servicio = %s", (servicio_id,))
+        if cursor.rowcount == 0:
+            conn.rollback()
+            return validation_error("Servicio no encontrado", 404)
+        conn.commit()
+        return jsonify({"message": "Servicio eliminado correctamente"})
+    except mariadb.Error as error:
+        conn.rollback()
+        return validation_error(f"No se pudo eliminar el servicio: {error}", 500)
     finally:
         conn.close()
 
