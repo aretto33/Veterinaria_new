@@ -35,7 +35,6 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { tr } from 'date-fns/locale'
 
 interface VeterinarioViewProps {
   cartillas: Cartilla_Vacunacion[]

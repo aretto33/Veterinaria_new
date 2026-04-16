@@ -91,7 +91,7 @@ export function CitasView({ citas, onCancelCita }: CitasViewProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {citasDelDia.map((cita) => (
+              {citasDelDia.map((cita) => ( // Revisar esta parte de las citas con los veterinarios
                 <div key={cita.id} className="rounded-[1.5rem] border border-slate-200 p-5">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>

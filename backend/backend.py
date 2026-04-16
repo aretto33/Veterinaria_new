@@ -14,10 +14,23 @@ app.secret_key = os.getenv("SECRET_KEY", "change-this-secret")
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads", "perfiles")
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+
+
+def get_allowed_origins():
+    configured_origins = os.getenv("CORS_ORIGIN", "").strip()
+    if configured_origins:
+        return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+
+    return [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+
 #Cross-Origin Resource Sharing (CORS)
 CORS(
-    app, 
-    resources={r"/api/*": {"origins": os.getenv("CORS_ORIGIN", "http://localhost:3000")}},
+    app,
+    resources={r"/api/*": {"origins": get_allowed_origins()}},
     supports_credentials=True,
 )
 
@@ -118,6 +131,7 @@ def bootstrap():
         )
         servicios = [
             {
+                "id_servicio": row[0],
                 "pk_servicio": row[0],
                 "nombre": row[1],
                 "descripción": row[2],
@@ -183,7 +197,7 @@ def bootstrap():
 
         cursor.execute(
             """
-            SELECT vs.fk_veterinario, vs.fk_servicio, vs.precio,
+            SELECT vs.pk_veterinario_servicio, vs.fk_veterinario, vs.fk_servicio, vs.precio,
                    p.nombre, p.apellidos, v.especialidad, p.telefono, v.direcc_consultorio
             FROM Veterinario_Servicio vs
             INNER JOIN Veterinario v ON v.pk_veterinario = vs.fk_veterinario
@@ -193,13 +207,14 @@ def bootstrap():
         )
         veterinario_servicios = [
             {
-                "fk_veterinario": row[0],
-                "fk_servicio": row[1],
-                "precio": float(row[2]) if row[2] is not None else 0,
-                "veterinario_nombre": f"{row[3]} {row[4]}".strip(),
-                "especialidad": row[5] or "",
-                "telefono": str(row[6] or ""),
-                "direccion": row[7] or "",
+                "pk_veterinario_servicio": row[0],
+                "fk_veterinario": row[1],
+                "fk_servicio": row[2],
+                "precio": float(row[3]) if row[3] is not None else 0,
+                "veterinario_nombre": f"{row[4]} {row[5]}".strip(),
+                "especialidad": row[6] or "",
+                "telefono": str(row[7] or ""),
+                "direccion": row[8] or "",
             }
             for row in cursor.fetchall()
         ]
@@ -248,6 +263,7 @@ def bootstrap():
                 "fk_cliente": row[4],
                 "fk_veterinario": row[5],
                 "fk_mascota": row[6],
+                "fk_servicio": None,
                 "mascota": row[7],
                 "veterinario": f"{row[8]} {row[9]}".strip(),
                 "direccion": row[10] or "",
@@ -694,7 +710,6 @@ def create_cartilla():
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
-                data["fecha_atencion"],
                 float(data["peso"]),
                 data["diagnostico"],
                 data["receta_medicamento"],
@@ -715,7 +730,8 @@ def create_cartilla():
                     "diagnostico": data["diagnostico"],
                     "receta_medicamento": data["receta_medicamento"],
                     "fk_mascota": int(data["fk_mascota"]),
-                    "fk_veterinanio": int(data["fk_veterinanio"]),
+                    "fk_veterinario": int(data.get("fk_veterinanio", data.get("fk_veterinario", 0))),
+                    "fk_veterinanio": int(data.get("fk_veterinanio", data.get("fk_veterinario", 0))),
                     "fk_tratamiento": int(data["fk_tratamiento"]),
                 }
             ),
@@ -738,10 +754,24 @@ def update_cartilla(cartilla_id):
         return validation_error("No se pudo conectar a la base de datos", 500)
 
     try:
+        # validar campos necesarios para comprobar que la cartlla sí está en la BD
+        cursor.execute(
+            """
+            SELECT fecha_atencion FROM Cartilla_Vacunacion
+            WHERE pk_cartilla = %s
+            """,
+            (cartilla_id,),
+        )
+        existing_cartilla = cursor.fetchone()
+        if not existing_cartilla:
+            conn.rollback()
+            return validation_error("Cartilla no existe",404)
+
         cursor.execute(
             """
             UPDATE Cartilla_Vacunacion
-            SET peso = %s,
+            SET
+                peso = %s,
                 diagnostico = %s,
                 receta_medicamento = %s,
                 fk_mascota = %s,
@@ -759,20 +789,17 @@ def update_cartilla(cartilla_id):
                 cartilla_id,
             ),
         )
-
-        if cursor.rowcount == 0:
-            conn.rollback()
-            return validation_error("Cartilla no encontrada", 404)
-
         conn.commit()
         return jsonify(
             {
                 "id": cartilla_id,
+                "fecha_atencion":existing_cartilla[0] ,
                 "peso": float(data["peso"]),
                 "diagnostico": data["diagnostico"],
                 "receta_medicamento": data["receta_medicamento"],
                 "fk_mascota": int(data["fk_mascota"]),
                 "fk_veterinario": int(data.get("fk_veterinario", 0)),
+                "fk_veterinanio": int(data.get("fk_veterinario", 0)),
                 "fk_tratamiento": int(data["fk_tratamiento"]),
             }
         )
@@ -809,8 +836,8 @@ def create_cita():
     try:
         cursor.execute(
             """
-            INSERT INTO Citas (fecha_hora, estado, motivo_consulta, fk_cliente, fk_veterinario, fk_mascota)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO Citas (fecha_hora, estado, motivo_consulta, fk_cliente, fk_veterinario, fk_mascota, fk_servicio)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 data["fecha_hora"],
@@ -819,6 +846,8 @@ def create_cita():
                 int(data["fk_cliente"]),
                 int(data["fk_veterinario"]),
                 int(data["fk_mascota"]),
+                int(data["fk_servicio"]),
+
             ),
         )
         cita_id = cursor.lastrowid
@@ -863,10 +892,9 @@ def get_servicios():
     try:
         cursor.execute(
             """
-            SELECT pk_servicio_veterinario, nombre
-            , descripcion, precio
+            SELECT pk_servicio, nombre, descripcion, precio
             FROM Servicios
-            ORDER BY pk_servicio_veterinario
+            ORDER BY pk_servicio
             """
         )
         servicios = [

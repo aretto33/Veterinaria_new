@@ -247,7 +247,7 @@ export function ListaVeterinariosView({
           </div>
         ) : (
           <div className="grid gap-4">
-            {citasAgendadas.map((cita) => (
+            {citasAgendadas.map((cita) => ( // Revisar esta parte de la ruta de lista veterinarios
               <div key={cita.id} className="rounded-2xl border border-slate-200 p-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
@@ -283,6 +283,9 @@ export function ListaVeterinariosView({
             </div>
 
             <form onSubmit={handleSaveBooking} className="p-8 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase">Servicio</label>
+              </div>
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase">Mascota</label>
                 <select

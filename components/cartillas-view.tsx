@@ -4,19 +4,34 @@ import { FileText, Search, Printer, Download, Filter, History, ChevronRight, Act
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
+const formatDate = (value?: string) => {
+  if (!value) return 'Sin fecha'
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return String(value)
+  }
+
+  return parsed.toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 export function CartillasView({ cartillas, mascotas }: { cartillas: any[], mascotas: any[] }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedId, setSelectedId] = useState<number | null>(null)
 
   // 1. Lógica de búsqueda avanzada
   const filteredCartillas = cartillas.filter(c => {
-    const mascota = mascotas.find(m => m.id === c.mascota_id)
+    const mascota = mascotas.find(m => m.id === c.fk_mascota)
     return mascota?.Nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
            c.id.toString().includes(searchTerm)
   })
 
   const cartillaSeleccionada = cartillas.find(c => c.id === selectedId)
-  const mascotaSeleccionada = mascotas.find(m => m.id === cartillaSeleccionada?.mascota_id)
+  const mascotaSeleccionada = mascotas.find(m => m.id === cartillaSeleccionada?.fk_mascota)
 
   const handleExport = () => {
     toast.info("Generando reporte médico...", {
@@ -53,7 +68,7 @@ export function CartillasView({ cartillas, mascotas }: { cartillas: any[], masco
         {/* LISTA DE CARTILLAS */}
         <div className="lg:col-span-1 space-y-4 max-h-[70vh] overflow-y-auto pr-2">
   {filteredCartillas.map((c) => {
-    const m = mascotas.find(pet => pet.id === c.mascota_id)
+    const m = mascotas.find(pet => pet.id === c.fk_mascota)
     return (
       <div 
         key={c.id}
@@ -77,6 +92,9 @@ export function CartillasView({ cartillas, mascotas }: { cartillas: any[], masco
               <p className={`text-xs mt-1 ${selectedId === c.id ? 'text-blue-100' : 'text-slate-400'}`}>
                 Folio médico: #{c.id}
               </p>
+              <p className={`text-xs mt-1 ${selectedId === c.id ? 'text-blue-100' : 'text-slate-500'}`}>
+                Atención: {formatDate(c.fecha_atencion)}
+              </p>
             </div>
           </div>
           <ChevronRight className={`w-5 h-5 mt-1 opacity-50 ${selectedId === c.id ? 'text-white' : ''}`} />
@@ -97,7 +115,7 @@ export function CartillasView({ cartillas, mascotas }: { cartillas: any[], masco
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-slate-900">Historial Clínico</h3>
-                    <p className="text-sm text-slate-500 italic">Actualizado al {new Date().toLocaleDateString()}</p>
+                    <p className="text-sm text-slate-500 italic">Atención registrada: {formatDate(cartillaSeleccionada?.fecha_atencion)}</p>
                   </div>
                 </div>
                 {/* 3. BOTONES DE EXPORTACIÓN */}
@@ -124,8 +142,8 @@ export function CartillasView({ cartillas, mascotas }: { cartillas: any[], masco
                   <div className="space-y-4">
                     <h4 className="text-[10px] uppercase font-black text-blue-600 tracking-widest">Resumen de Salud</h4>
                     <div className="bg-slate-50 p-4 rounded-2xl space-y-2">
-                      <p className="text-sm font-medium">Última Vacuna: <span className="text-green-600 font-bold">{cartillaSeleccionada?.Vacunas}</span></p>
-                      <p className="text-sm font-medium">Próxima dosis: <span className="text-slate-600">En 6 meses</span></p>
+                      <p className="text-sm font-medium">Peso registrado: <span className="text-green-600 font-bold">{cartillaSeleccionada?.peso ?? 'Sin dato'} kg</span></p>
+                      <p className="text-sm font-medium">Diagnóstico: <span className="text-slate-600">{cartillaSeleccionada?.diagnostico || 'Sin diagnóstico'}</span></p>
                     </div>
                   </div>
                 </div>
@@ -135,14 +153,12 @@ export function CartillasView({ cartillas, mascotas }: { cartillas: any[], masco
                     <History className="w-3 h-3" /> Línea de Tiempo Médica
                   </h4>
                   <div className="border-l-2 border-slate-100 ml-2 space-y-6">
-                    {[1, 2].map((_, i) => (
-                      <div key={i} className="relative pl-6">
+                    <div className="relative pl-6">
                         <div className="absolute left-[-9px] top-1 w-4 h-4 rounded-full bg-white border-4 border-blue-500 shadow-sm"></div>
-                        <p className="text-xs font-bold text-slate-400">12 NOV 2025</p>
-                        <p className="text-sm font-bold text-slate-800">Aplicación de Vacuna {cartillaSeleccionada?.Vacunas}</p>
-                        <p className="text-xs text-slate-500">Dosis completada por Dr. Alejandro Martínez</p>
+                        <p className="text-xs font-bold text-slate-400">{formatDate(cartillaSeleccionada?.fecha_atencion)}</p>
+                        <p className="text-sm font-bold text-slate-800">{cartillaSeleccionada?.diagnostico || 'Atención médica registrada'}</p>
+                        <p className="text-xs text-slate-500">{cartillaSeleccionada?.receta_medicamento || 'Sin receta registrada'}</p>
                       </div>
-                    ))}
                   </div>
                 </div>
               </div>

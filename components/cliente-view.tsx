@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Cartilla_Vacunacion, Mascotas, Vacuna_desparacitacion } from '@/lib/types'
+import { Cartilla_Vacunacion, Mascotas, Vacuna_desparacitacion, Citas, CitaAgendada} from '@/lib/types'
 import { 
   Plus, 
   PawPrint,
@@ -40,6 +40,7 @@ import {
 
 interface ClienteViewProps {
   mascotas: Mascotas[]
+  citasAgendadas: CitaAgendada[]
   cartillas: Cartilla_Vacunacion[]
   tratamientos: Vacuna_desparacitacion[]
   clientId: number | null
@@ -49,6 +50,7 @@ interface ClienteViewProps {
 
 export function ClienteView({
   mascotas,
+  citasAgendadas,
   cartillas,
   tratamientos,
   clientId,
@@ -61,6 +63,9 @@ export function ClienteView({
     ? mascotas.filter((mascota) => mascota.fk_cliente === clientId)
     : mascotas
   const [selectedMascotaId, setSelectedMascotaId] = useState<number | null>(visibleMascotas[0]?.id ?? null)
+
+  const TotalCitas = citasAgendadas.length
+
 
   useEffect(() => {
     if (!visibleMascotas.length) {
@@ -245,7 +250,7 @@ export function ClienteView({
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Citas Pendientes</p>
-              <p className="text-2xl font-bold">2</p>
+              <p className="text-2xl font-bold">{TotalCitas}</p>
             </div>
           </CardContent>
         </Card>
