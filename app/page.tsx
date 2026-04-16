@@ -119,7 +119,7 @@ export default function MediVetApp() {
     setNombresUsuarios((prev) => ({ ...prev, [user.id]: fullName }))
     if (user.role_id === 2) {
       setCurrentView('veterinario')
-    } else {
+    } else if (user.role_id === 1) {
       setCurrentView('cliente')
     }
     toast.success(`Bienvenido/a, ${fullName}`)
@@ -183,10 +183,15 @@ export default function MediVetApp() {
 
   const handleCreateServicio = useCallback(async (servicio: Omit<Servicios, 'id_servicio'>) => {
     try {
+      const payload = {
+        nombre: servicio.nombre,
+        descripcion: servicio.descripción,
+        precio: servicio.precio,
+      }
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/servicios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(servicio),
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -205,10 +210,15 @@ export default function MediVetApp() {
   const handleUpdateServicio = useCallback(async (updatedServicio: Servicios) => {
     try {
       const { id_servicio, ...payload } = updatedServicio
+      const normalizedPayload = {
+        nombre: payload.nombre,
+        descripcion: payload.descripción,
+        precio: payload.precio,
+      }
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/servicios/${id_servicio}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(normalizedPayload),
       })
 
       if (!response.ok) {
@@ -266,10 +276,12 @@ export default function MediVetApp() {
 
   const handleUpdateVeterinarioServicio = useCallback(async (servicio: VeterinarioServicio) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/veterinario_servicio/${servicio.fk_veterinario}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/veterinario_servicio/${servicio.pk_veterinario_servicio}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(servicio),
+        body: JSON.stringify({
+          precio: servicio.precio,
+        }),
       })
 
       if (!response.ok) {
@@ -279,15 +291,14 @@ export default function MediVetApp() {
       }
 
       const updated = await response.json()
-      setVeterinarioServicios((prev) => prev.map((it) => it.fk_veterinario === updated.fk_veterinario && it.fk_servicio === updated.fk_servicio ? updated : it))
+      setVeterinarioServicios((prev) =>
+        prev.map((it) =>
+          it.pk_veterinario_servicio === updated.pk_veterinario_servicio
+            ? { ...it, precio: Number(updated.precio) }
+            : it
+        )
+      )
       toast.success('Servicio veterinario actualizado')
-      const fetchVeterinarioServicios = async () => {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/veterinario_servicio`)
-  const data = await res.json()
-  setVeterinarioServicios(data)
-}
-
-
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al actualizar servicio veterinario'
       toast.error(message)
@@ -338,9 +349,16 @@ export default function MediVetApp() {
   const handleAgendarCita = useCallback((cita: Omit<CitaAgendada, 'id'>) => {
     const save = async () => {
       try {
-        if (!currentUser?.cliente_id) {
+        if (!currentUser) {
+          throw new Error('No hay usuario')
+        }
+        if (!currentUser?.role_id){
+          throw new Error('')
+        }
+        if (!currentUser?.cliente_id){
           throw new Error('No se encontró el cliente autenticado')
         }
+          
 
         const mascota = mascotas.find((item) => item.Nombre === cita.mascota)
         const servicio = servicios.find((s) => s.nombre === cita.servicio)
@@ -472,6 +490,7 @@ export default function MediVetApp() {
         return (
           <ClienteView 
             mascotas={mascotas}
+            citasAgendadas={citasAgendadas}
             cartillas={cartillas}
             tratamientos={tratamientos}
             clientId={currentUser?.cliente_id ?? null}

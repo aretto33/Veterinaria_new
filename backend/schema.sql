@@ -1,5 +1,5 @@
-CREATE USER 'admin'@'%' IDENTIFIED BY 'admin482';
-GRANT ALL PRIVILEGES ON MediVet.* TO 'admin'@'%';
+CREATE USER 'admin'@'localhost' IDENTIFIED BY 'admin482';
+GRANT ALL PRIVILEGES ON MediVet.* TO 'admin'@'localhost';
 FLUSH PRIVILEGES;
 
 CREATE DATABASE MediVet;
