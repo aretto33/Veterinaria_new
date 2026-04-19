@@ -49,8 +49,10 @@ export default function MediVetApp() {
     const loadInitialData = async () => {
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bootstrap`)
+        
         if (!response.ok) {
-          throw new Error('No se pudo cargar la informacion inicial')
+          const errorData = await response.json().catch(()=> ({message: 'error desconocido por el servidor'}))
+          throw new Error(`No se pudo cargar la informacion inicial: ${errorData.message} || ${response.statusText}`)
         }
 
         const data = await response.json()
