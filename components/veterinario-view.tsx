@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Cartilla_Vacunacion, Mascotas, Vacuna_desparacitacion } from '@/lib/types'
+import { Cartilla_Vacunacion, Mascotas, Vacuna_desparacitacion, CitaAgendada } from '@/lib/types'
 import { 
   Plus, 
   Pencil, 
@@ -40,6 +40,7 @@ interface VeterinarioViewProps {
   cartillas: Cartilla_Vacunacion[]
   mascotas: Mascotas[]
   tratamientos: Vacuna_desparacitacion[]
+  citasAgendadas: CitaAgendada[]
   onCreateCartilla: (cartilla: Omit<Cartilla_Vacunacion, 'id'>) => void
   onUpdateCartilla: (cartilla: Cartilla_Vacunacion) => void
 }
@@ -87,7 +88,7 @@ export function VeterinarioView({
   const crear_cartilla = () => {
     onCreateCartilla({
       ...formData,
-      fk_veterinanio: 1,
+      fk_veterinario: 1,
       fk_tratamiento: 1
     })
     setIsCreateDialogOpen(false)
@@ -129,6 +130,11 @@ export function VeterinarioView({
       tratamiento: cartilla.tratamiento
     })
     setIsEditDialogOpen(true)
+  }
+    {/*sECCIÓN EN LA CUAL SE MANDA EL WAHTSAPP */}
+  const abrirWhatsapp = (telefono: string, veterinario: string, fecha: string, hora: string) => {
+    const mensaje = encodeURIComponent(`Te recordamos que tienes una cita con el Veterinario ${veterinario} el día ${fecha} a las ${hora}. ¡No olvides llevar a tu mascota!`)
+    window.open(`https://wa.me/${telefono}?text=${mensaje}`, '_blank')
   }
 
   return (
