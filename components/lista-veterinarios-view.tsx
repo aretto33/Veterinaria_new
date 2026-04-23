@@ -285,6 +285,7 @@ export function ListaVeterinariosView({
             <form onSubmit={handleSaveBooking} className="p-8 space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase">Servicio</label>
+                <div className='w-full mt-1 p-3 bg-slate-100 rounded-xl outline-none'>{selectedService.nombre}</div>
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase">Mascota</label>

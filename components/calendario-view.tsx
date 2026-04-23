@@ -1,112 +1,161 @@
 'use client'
-import { useState } from 'react'
-import { Calendar as CalendarIcon, Clock, Bell, Scissors, Stethoscope, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 
-export function CalendarioView() {
-  const [date, setDate] = useState(new Date())
+import { useMemo, useState } from 'react'
+import { CalendarClock, Clock, Info, MapPin } from 'lucide-react'
 
-  // Datos simulados de la agenda del veterinario logueado
-  const agendaHoy = [
-    { id: 1, hora: '09:00 AM', mascota: 'Luna', servicio: 'Vacunación', tipo: 'medico', estado: 'completado' },
-    { id: 2, hora: '11:30 AM', mascota: 'Rocky', servicio: 'Cirugía (Quirófano 1)', tipo: 'cirugia', estado: 'pendiente' },
-    { id: 3, hora: '02:00 PM', mascota: 'Michi', servicio: 'Control General', tipo: 'medico', estado: 'pendiente' },
-    { id: 4, hora: '04:30 PM', mascota: 'Coco', servicio: 'Estética', tipo: 'estetica', estado: 'pendiente' },
-  ]
+import { Calendar } from '@/components/ui/calendar'
+import { CitaAgendada } from '@/lib/types'
+
+interface CalendarioViewProps {
+  citas: CitaAgendada[]
+}
+
+const parseDate = (date: string) => {
+  const [year, month, day] = date.split('-').map(Number)
+  return new Date(year, (month || 1) - 1, day || 1)
+}
+
+export function CalendarioView({ citas }: CalendarioViewProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
+
+  const fechasConCitas = useMemo(() => citas.map((cita) => parseDate(cita.fecha)), [citas])
+
+  const citasDelDia = useMemo(() => {
+    if (!selectedDate) {
+      return citas
+    }
+
+    const selectedDateText = selectedDate.toISOString().slice(0, 10)
+    return citas.filter((cita) => cita.fecha === selectedDateText)
+  }, [citas, selectedDate])
+
+  {/*sECCIÓN EN LA CUAL SE MANDA EL WAHTSAPP */}
+  const abrirWhatsapp = (telefono: string, veterinario: string, fecha: string, hora: string) => {
+    const mensaje = encodeURIComponent(`Te recordamos que tienes una cita con el Veterinario ${veterinario} el día ${fecha} a las ${hora}. ¡No olvides llevar a tu mascota!`)
+    window.open(`https://wa.me/${telefono}?text=${mensaje}`, '_blank')
+  }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-700">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Mi Agenda</h2>
-          <p className="text-slate-500 font-medium">Gestión de citas y recursos para hoy</p>
-        </div>
-        <div className="flex items-center gap-4 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
-          <Button variant="ghost" size="icon" className="rounded-xl"><ChevronLeft className="w-4 h-4" /></Button>
-          <span className="font-bold text-slate-700 px-4">Marzo 2026</span>
-          <Button variant="ghost" size="icon" className="rounded-xl"><ChevronRight className="w-4 h-4" /></Button>
-        </div>
+    <div className="p-8 min-h-screen bg-slate-50/50 animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Mi Agenda</h2>
+        <p className="text-slate-500 text-lg">
+          Revisa tus citas en el calendario y abre cada fecha para ver el detalle.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* COLUMNA 1 Y 2: AGENDA DETALLADA */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-blue-600" /> Próximas Atenciones
-              </h3>
-              <span className="text-xs font-black text-blue-600 bg-blue-100 px-3 py-1 rounded-full uppercase">Hoy</span>
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[420px_1fr]">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+              <CalendarClock className="w-5 h-5" />
             </div>
-            <div className="divide-y divide-slate-50">
-              {agendaHoy.map((item) => (
-                <div key={item.id} className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
-                  <div className="flex items-center gap-6">
-                    <span className="text-sm font-bold text-slate-400 w-20">{item.hora}</span>
-                    <div className={`p-3 rounded-2xl ${
-                      item.tipo === 'cirugia' ? 'bg-red-50 text-red-600' : 
-                      item.tipo === 'estetica' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'
-                    }`}>
-                      {item.tipo === 'cirugia' ? <Stethoscope className="w-5 h-5" /> : 
-                       item.tipo === 'estetica' ? <Scissors className="w-5 h-5" /> : <CalendarIcon className="w-5 h-5" />}
-                    </div>
+            <div>
+              <p className="font-bold text-slate-900">Calendario de agenda</p>
+              <p className="text-sm text-slate-500">Selecciona un día para ver lo programado.</p>
+            </div>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-slate-100 bg-slate-50 p-3">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              className="w-full"
+              modifiers={{ booked: fechasConCitas }}
+              modifiersClassNames={{
+                booked:
+                  'relative after:absolute after:bottom-1.5 after:left-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:rounded-full after:bg-emerald-500',
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-2xl font-bold text-slate-900">Detalle del día</h3>
+              <p className="text-slate-500">
+                {selectedDate
+                  ? `Citas para ${selectedDate.toLocaleDateString('es-MX', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                    })}`
+                  : 'Todas las citas registradas'}
+              </p>
+            </div>
+            <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+              {citasDelDia.length} cita(s)
+            </span>
+          </div>
+
+          {citasDelDia.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-slate-500">
+              No hay citas programadas para esta fecha.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {citasDelDia.map((cita) => (
+                <div key={cita.id} className="rounded-[1.5rem] border border-slate-200 p-5">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
-                      <h4 className="font-bold text-slate-900">{item.mascota}</h4>
-                      <p className="text-sm text-slate-500">{item.servicio}</p>
+                      <p className="text-lg font-bold text-slate-900">{cita.servicio}</p>
+                      <p className="text-sm text-slate-500">{cita.mascota}</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
+                      {cita.fecha} · {cita.hora}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="flex gap-3">
+                      <div className="rounded-xl bg-slate-100 p-2 text-slate-600">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Hora</p>
+                        <p className="text-sm font-semibold text-slate-800">{cita.hora}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="rounded-xl bg-slate-100 p-2 text-slate-600">
+                        <MapPin className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Ubicación</p>
+                        <p className="text-sm font-semibold text-slate-800">{cita.direccion}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {item.estado === 'completado' ? (
-                      <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                        <CheckCircle2 className="w-3 h-3" /> Realizada
-                      </span>
-                    ) : (
-                      <Button size="sm" className="rounded-xl bg-slate-900 text-xs px-4">Iniciar Consulta</Button>
-                    )}
+
+                  <div className="mt-4 flex gap-3 border-t border-slate-100 pt-4">
+                    <div className="rounded-xl bg-blue-50 p-2 text-blue-600">
+                      <Info className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-blue-400">Motivo</p>
+                      <p className="text-sm text-slate-700">{cita.motivo}</p>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          )}
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="text-xs font-bold uppercase text-emerald-700">WhatsApp</p>
+                    <p className="mt-1 text-sm text-emerald-900">
+                      Aqui puedes colocar el boton para enviar recordatorio al cliente.
+                    </p>
+                    {/* endiente checar los parámetros de los numeros de telefono de los veterinarios a los clientes*/}
+                    <button className="mt-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white"
+                    onClick={() => abrirWhatsapp()}>
+                      Enviar recordatorio por WhatsApp
+                    </button>
+                  </div>
         </div>
-
-        {/* COLUMNA 3: RECORDATORIOS AUTOMÁTICOS (PUNTO 2 Y 3) */}
-        <div className="space-y-6">
-          {/* Recordatorios de Vacunación */}
-          <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-blue-100">
-            <div className="flex items-center gap-3 mb-6">
-              <Bell className="w-6 h-6 text-blue-200" />
-              <h3 className="font-bold text-xl">Alertas de Vacunación</h3>
-            </div>
-            <div className="space-y-4">
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20">
-                <p className="text-xs font-bold text-blue-200 uppercase">Vence Mañana</p>
-                <p className="font-bold">Luna - Refuerzo Quíntuple</p>
-                <p className="text-xs mt-1 text-blue-100">El dueño ya recibió notificación por WhatsApp.</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20">
-                <p className="text-xs font-bold text-blue-200 uppercase">En 3 días</p>
-                <p className="font-bold">Rocky - Desparasitación</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Estado de Recursos (Quirófano) */}
-          <div className="bg-white rounded-[2.5rem] border border-slate-200 p-8 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-amber-500" /> Estado de Quirófano
-            </h3>
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-              <div>
-                <p className="text-sm font-bold text-slate-700">Sala de Cirugía 1</p>
-                <p className="text-xs text-green-600 font-medium">Disponible desde las 01:00 PM</p>
-              </div>
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-
+        
       </div>
     </div>
   )

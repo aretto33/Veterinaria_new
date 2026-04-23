@@ -244,13 +244,16 @@ def bootstrap():
                    m.nombre,
                    p.nombre, p.apellidos,
                    v.direcc_consultorio,
-                   s.nombre
+                   COALESCE(MIN(s.nombre), 'Consulta') AS servicio
             FROM Citas c
-            INNER JOIN Mascotas m ON m.pk_mascota = c.fk_mascota
-            INNER JOIN Veterinario v ON v.pk_veterinario = c.fk_veterinario
-            INNER JOIN Perfil_Usuario p ON p.fk_usuario = v.fk_usuario
-            LEFT JOIN Veterinario_Servicio vs ON vs.fk_veterinario = c.fk_veterinario
-            LEFT JOIN Servicios s ON s.pk_servicio = vs.fk_servicio
+INNER JOIN Mascotas m ON m.pk_mascota = c.fk_mascota
+INNER JOIN Veterinario v ON v.pk_veterinario = c.fk_veterinario
+INNER JOIN Perfil_Usuario p ON p.fk_usuario = v.fk_usuario
+LEFT JOIN Servicios s ON s.pk_servicio = c.fk_servicio
+            GROUP BY
+                c.pk_cita, c.fecha_hora, c.estado, c.motivo_consulta,
+                c.fk_cliente, c.fk_veterinario, c.fk_mascota,
+                m.nombre, p.nombre, p.apellidos, v.direcc_consultorio
             ORDER BY c.fecha_hora DESC
             """
         )
@@ -710,11 +713,12 @@ def create_cartilla():
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
+                data["fecha_atencion"],
                 float(data["peso"]),
                 data["diagnostico"],
                 data["receta_medicamento"],
                 int(data["fk_mascota"]),
-                int(data.get("fk_veterinanio", 0)),
+                int(data.get("fk_veterinario", data.get("fk_veterinanio", 0))),
                 int(data["fk_tratamiento"]),
             ),
         )
@@ -730,8 +734,7 @@ def create_cartilla():
                     "diagnostico": data["diagnostico"],
                     "receta_medicamento": data["receta_medicamento"],
                     "fk_mascota": int(data["fk_mascota"]),
-                    "fk_veterinario": int(data.get("fk_veterinanio", data.get("fk_veterinario", 0))),
-                    "fk_veterinanio": int(data.get("fk_veterinanio", data.get("fk_veterinario", 0))),
+                    "fk_veterinario": int(data.get("fk_veterinario", data.get("fk_veterinanio", 0))),
                     "fk_tratamiento": int(data["fk_tratamiento"]),
                 }
             ),
@@ -799,7 +802,6 @@ def update_cartilla(cartilla_id):
                 "receta_medicamento": data["receta_medicamento"],
                 "fk_mascota": int(data["fk_mascota"]),
                 "fk_veterinario": int(data.get("fk_veterinario", 0)),
-                "fk_veterinanio": int(data.get("fk_veterinario", 0)),
                 "fk_tratamiento": int(data["fk_tratamiento"]),
             }
         )
@@ -1028,7 +1030,6 @@ def update_veterinario_servicio(veterinario_servicio_id):
         return validation_error(f"No se pudo actualizar el servicio: {error}", 500)
     finally:
         conn.close()
-
 
 
 

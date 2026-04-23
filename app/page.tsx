@@ -45,6 +45,24 @@ export default function MediVetApp() {
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  const normalizarCita = useCallback((cita: any): CitaAgendada => {
+    const fecha = new Date(cita.fecha_hora)
+    const fechaTexto = Number.isNaN(fecha.getTime()) ? '' : fecha.toISOString().slice(0, 10)
+    const horaTexto = Number.isNaN(fecha.getTime()) ? '' : fecha.toTimeString().slice(0, 5)
+
+    return {
+      id: cita.id,
+      servicio: cita.servicio,
+      mascota: cita.mascota,
+      veterinario: cita.veterinario,
+      fecha: fechaTexto,
+      hora: horaTexto,
+      direccion: cita.direccion,
+      motivo: cita.motivo,
+      fk_cliente: cita.fk_cliente ?? undefined,
+    }
+  }, [])
+
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -67,28 +85,12 @@ export default function MediVetApp() {
         setTratamientos(data.tratamientos || [])
         setVeterinarioServicios(data.veterinarioServicios || [])
         setAgendaVeterinarios(data.agendaVeterinarios || [])
-        setCitasAgendadas(
-          (data.citas || []).map((cita: any) => {
-            const fecha = new Date(cita.fecha_hora)
-            const fechaTexto = Number.isNaN(fecha.getTime())
-              ? ''
-              : fecha.toISOString().slice(0, 10)
-            const horaTexto = Number.isNaN(fecha.getTime())
-              ? ''
-              : fecha.toTimeString().slice(0, 5)
-
-            return {
-              id: cita.id,
-              servicio: cita.servicio,
-              mascota: cita.mascota,
-              veterinario: cita.veterinario,
-              fecha: fechaTexto,
-              hora: horaTexto,
-              direccion: cita.direccion,
-              motivo: cita.motivo,
-            }
-          })
-        )
+        const citasUnicas = new Map<number, CitaAgendada>()
+        for (const cita of data.citas || []) {
+          const citaNormalizada = normalizarCita(cita)
+          citasUnicas.set(citaNormalizada.id, citaNormalizada)
+        }
+        setCitasAgendadas(Array.from(citasUnicas.values()))
         setNombresUsuarios(data.nombresUsuarios)
       } catch (error) {
         const message =
@@ -102,7 +104,18 @@ export default function MediVetApp() {
     loadInitialData()
   }, [])
 
+  const citasDelCliente =
+    currentUser?.role_id === 1 && currentUser.cliente_id
+      ? citasAgendadas.filter((cita) => cita.fk_cliente === currentUser.cliente_id)
+      : citasAgendadas
+
+    const citasDelVeterinario =
+    currentUser?.role_id === 2 && currentUser.veterinario_id
+      ? citasAgendadas.filter((cita) => cita.fk_veterinario === currentUser.veterinario_id)
+      : citasAgendadas
+
   const getNombreCompleto = useCallback(
+
     (userId?: number | null) => {
       if (!userId) {
         return 'Usuario'
@@ -147,7 +160,8 @@ export default function MediVetApp() {
       })
 
       if (!response.ok) {
-        throw new Error('No se pudo crear la cartilla')
+        const errorData = await response.json().catch(()=>({message: 'Error desconocido por el servidor'}))
+        throw new Error(`No se pudo crear la cartilla: ${errorData.message} || ${response.statusText}`)
       }
 
       const newCartilla: Cartilla_Vacunacion = await response.json()
@@ -352,7 +366,7 @@ export default function MediVetApp() {
     const save = async () => {
       try {
         if (!currentUser) {
-          throw new Error('No hay usuario')
+          throw new Error('Usuario no autenticado')
         }
         if (!currentUser?.role_id){
           throw new Error('')
@@ -391,6 +405,8 @@ export default function MediVetApp() {
             fk_cliente: currentUser.cliente_id,
             fk_veterinario: profesional.fk_veterinario,
             fk_mascota: mascota.id,
+            fk_servicio: servicios.find((s) => s.nombre === cita.servicio)?.id_servicio,
+
           }),
         })
 
@@ -399,7 +415,10 @@ export default function MediVetApp() {
           throw new Error(data.message || 'No se pudo crear la cita')
         }
 
-        setCitasAgendadas((prev) => [{ id: data.id, ...cita }, ...prev])
+        setCitasAgendadas((prev) => [
+          { id: data.id, ...cita, fk_cliente: currentUser.cliente_id ?? undefined},
+          ...prev,
+        ])
         toast.success('Cita agendada correctamente')
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'No se pudo agendar la cita')
@@ -455,6 +474,7 @@ export default function MediVetApp() {
             cartillas={cartillas}
             mascotas={mascotas}
             tratamientos={tratamientos}
+            citasAgendadas={citasAgendadas.filter(cita => cita.veterinario === getNombreCompleto(currentUser?.id))}
             onCreateCartilla={handleCreateCartilla}
             onUpdateCartilla={handleUpdateCartilla}
           />
@@ -464,7 +484,7 @@ export default function MediVetApp() {
         return <CartillasView cartillas={cartillas} mascotas={mascotas} />
 
       case 'calendario':
-        return <CalendarioView />
+        return <CalendarioView citas={citasAgendadas} />
 
       case 'admin_servicios':
         return (
@@ -492,7 +512,7 @@ export default function MediVetApp() {
         return (
           <ClienteView 
             mascotas={mascotas}
-            citasAgendadas={citasAgendadas}
+            citasAgendadas={citasDelCliente}
             cartillas={cartillas}
             tratamientos={tratamientos}
             clientId={currentUser?.cliente_id ?? null}
@@ -508,13 +528,13 @@ export default function MediVetApp() {
             mascotas={mascotas}
             veterinarioServicios={veterinarioServicios}
             agendaVeterinarios={agendaVeterinarios}
-            citasAgendadas={citasAgendadas}
+            citasAgendadas={citasDelCliente}
             onAgendarCita={handleAgendarCita}
           />
         )
 
       case 'citas':
-        return <CitasView citas={citasAgendadas} onCancelCita={handleCancelarCita} />
+        return <CitasView citas={citasDelCliente} onCancelCita={handleCancelarCita} />
 
       case 'settings':
         return currentUser ? (

@@ -67,6 +67,8 @@ export interface CitaAgendada {
   hora: string
   direccion: string
   motivo: string
+  fk_cliente?: number
+  fk_veterinario?: number
 }
 
 // Mascotas
@@ -95,7 +97,8 @@ export interface Cartilla_Vacunacion {
   diagnostico: string // text
   receta_medicamento: string
   fk_mascota: number
-  fk_veterinanio: number
+  fk_veterinario: number
+  fk_veterinanio?: number // compatibilidad con payloads antiguos
   fk_tratamiento: number
   tratamiento: string
 }
