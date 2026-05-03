@@ -45,6 +45,8 @@ const mapCitaAgendada = (cita: any): CitaAgendada => {
     hora: hasValidDate ? fecha.toTimeString().slice(0, 5) : '',
     direccion: cita.direccion,
     motivo: cita.motivo,
+    fk_cliente: cita.fk_cliente ?? undefined,
+    fk_veterinario: cita.fk_veterinario ?? undefined,
   }
 }
 
@@ -89,10 +91,24 @@ export default function MediVetApp() {
       direccion: cita.direccion,
       motivo: cita.motivo,
       fk_cliente: cita.fk_cliente ?? undefined,
+      fk_veterinario: cita.fk_veterinario ?? undefined,
     }
   }, [])
 
   useEffect(() => {
+    // Restaurar sesión desde localStorage al iniciar
+    const savedUser = localStorage.getItem('medivet_user')
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser)
+        setCurrentUser(user)
+        if (user.role_id === 2) setCurrentView('veterinario')
+        else if (user.role_id === 1) setCurrentView('cliente')
+      } catch (e) {
+        localStorage.removeItem('medivet_user')
+      }
+    }
+
     const loadInitialData = async () => {
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bootstrap`)
@@ -160,6 +176,7 @@ export default function MediVetApp() {
   
   const handleLogin = useCallback((user: Usuario, fullName: string) => {
     setCurrentUser(user)
+    localStorage.setItem('medivet_user', JSON.stringify(user))
     setNombresUsuarios((prev) => ({ ...prev, [user.id]: fullName }))
     if (user.role_id === 2) {
       setCurrentView('veterinario')
@@ -171,6 +188,7 @@ export default function MediVetApp() {
 
   const logout = useCallback(() => {
     setCurrentUser(null)
+    localStorage.removeItem('medivet_user')
     setCurrentView('dashboard')
     toast.info('Sesión cerrada correctamente')
   }, [])
@@ -182,6 +200,10 @@ export default function MediVetApp() {
 
   const handleCreateCartilla = useCallback(async (cartilla: Omit<Cartilla_Vacunacion, 'id'>) => {
     try {
+      if (!currentUser || currentUser.role_id !== 2) {
+        throw new Error('Debes estar autenticado como veterinario para realizar esta acción')
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cartillas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -200,7 +222,7 @@ export default function MediVetApp() {
       const message = error instanceof Error ? error.message : 'No se pudo crear la cartilla'
       toast.error(message)
     }
-  }, [])
+  }, [currentUser])
 
   const handleUpdateCartilla = useCallback(async (updatedCartilla: Cartilla_Vacunacion) => {
     try {
@@ -370,6 +392,10 @@ export default function MediVetApp() {
 
   const handleAgregarMascota = useCallback(async (mascota: Omit<Mascotas, 'id'>) => {
     try {
+      if (!currentUser || !currentUser.cliente_id) {
+        throw new Error('No se encontró el ID del cliente. Intenta cerrar sesión e ingresar de nuevo.')
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/mascotas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -389,13 +415,13 @@ export default function MediVetApp() {
       const message = error instanceof Error ? error.message : 'No se pudo registrar la mascota'
       toast.error(message)
     }
-  }, [])
+  }, [currentUser])
 
   const handleAgendarCita = useCallback((cita: Omit<CitaAgendada, 'id'>) => {
     const save = async () => {
       try {
         if (!currentUser) {
-          throw new Error('Usuario no autenticado')
+          throw new Error('Debes iniciar sesión para agendar una cita')
         }
         if (!currentUser?.role_id){
           throw new Error('')
@@ -455,7 +481,7 @@ export default function MediVetApp() {
     }
 
     void save()
-  }, [])
+  }, [currentUser, mascotas, servicios, veterinarioServicios])
 
   const handleCancelarCita = useCallback((id: number) => {
     const remove = async () => {
@@ -503,7 +529,8 @@ export default function MediVetApp() {
             cartillas={cartillas}
             mascotas={mascotas}
             tratamientos={tratamientos}
-            citasAgendadas={citasAgendadas.filter(cita => cita.veterinario === getNombreCompleto(currentUser?.id))}
+            currentVeterinarioId={currentUser?.veterinario_id ?? null}
+            citasAgendadas={citasDelVeterinario}
             onCreateCartilla={handleCreateCartilla}
             onUpdateCartilla={handleUpdateCartilla}
           />

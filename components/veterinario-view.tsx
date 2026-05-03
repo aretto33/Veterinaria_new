@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Cartilla_Vacunacion, Mascotas, Vacuna_desparacitacion, CitaAgendada } from '@/lib/types'
 import { 
   Plus, 
@@ -35,11 +35,13 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { toast } from 'sonner'
 
 interface VeterinarioViewProps {
   cartillas: Cartilla_Vacunacion[]
   mascotas: Mascotas[]
   tratamientos: Vacuna_desparacitacion[]
+  currentVeterinarioId: number | null
   citasAgendadas: CitaAgendada[]
   onCreateCartilla: (cartilla: Omit<Cartilla_Vacunacion, 'id'>) => void
   onUpdateCartilla: (cartilla: Cartilla_Vacunacion) => void
@@ -49,6 +51,7 @@ export function VeterinarioView({
   cartillas, 
   mascotas,
   tratamientos,
+  currentVeterinarioId,
   onCreateCartilla, 
   onUpdateCartilla 
 }: VeterinarioViewProps) {
@@ -56,7 +59,6 @@ export function VeterinarioView({
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [selectedCartilla, setSelectedCartilla] = useState<Cartilla_Vacunacion | null>(null)
-  
   // Form state - usando nombres exactos del diagrama UML
   const [formData, setFormData] = useState({
     fk_mascota: 1,
@@ -64,7 +66,8 @@ export function VeterinarioView({
     peso: 0,
     diagnostico: '',
     receta_medicamento: '',
-    tratamiento: '' // Campo inicialmente diseñado
+    fk_tratamiento: 0,
+    tratamiento: ''
   })
 
   const getMascotaNombre = (fk_mascota: number) => {
@@ -73,9 +76,11 @@ export function VeterinarioView({
 
   const getTratamientoNombre = (fk_tratamiento: number) => {
     const tratamiento = tratamientos.find(
-      (t: Vacuna_desparacitacion) => t.id_tratamiento === fk_tratamiento
+      (t: Vacuna_desparacitacion) => (t.id_tratamiento ?? t.pk_tratamiento) === fk_tratamiento
     )
-    return tratamiento ? tratamiento.nombre || `Tratamiento #${tratamiento.id_tratamiento}` : 'Desconocido'
+    return tratamiento
+      ? tratamiento.nombre || `Tratamiento #${tratamiento.id_tratamiento ?? tratamiento.pk_tratamiento}`
+      : 'Desconocido'
   }
 
   const filteredCartillas = cartillas.filter(c => {
@@ -86,10 +91,14 @@ export function VeterinarioView({
 
   // Método crear_cartilla() según diagrama UML
   const crear_cartilla = () => {
+    if (!currentVeterinarioId) {
+      toast.error('No se encontró el veterinario autenticado.')
+      return
+    }
+
     onCreateCartilla({
       ...formData,
-      fk_veterinario: 1,
-      fk_tratamiento: 1
+      fk_veterinario: currentVeterinarioId,
     })
     setIsCreateDialogOpen(false)
     resetForm()
@@ -115,7 +124,8 @@ export function VeterinarioView({
       peso: 0,
       diagnostico: '',
       receta_medicamento: '',
-      tratamiento:''
+      fk_tratamiento: 0,
+      tratamiento: ''
     })
   }
 
@@ -127,6 +137,7 @@ export function VeterinarioView({
       peso: cartilla.peso,
       diagnostico: cartilla.diagnostico,
       receta_medicamento: cartilla.receta_medicamento,
+      fk_tratamiento: cartilla.fk_tratamiento,
       tratamiento: cartilla.tratamiento
     })
     setIsEditDialogOpen(true)
@@ -373,8 +384,6 @@ export function VeterinarioView({
                   </option>
                 ))}
               </select>
-    
-
             </div>
           </div>
           <DialogFooter>
@@ -440,16 +449,16 @@ export function VeterinarioView({
               />
             </div>
              <div className="space-y-2">
-              <Label htmlFor="edit-receta">Tratamiento</Label>
+              <Label htmlFor="edit-tratamiento">Tratamiento</Label>
               <select
-                id="tratamiento"
+                id="edit-tratamiento"
                 className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={formData.tratamiento}
                 onChange={(e) => setFormData({...formData, tratamiento: e.target.value}) }>
                 <option value="">Selecciona un tratamiento</option>
-                {tratamientoOptions.map((tratamiento) => (
-                  <option key={tratamiento.id} value={tratamiento.id}>
-                    {tratamiento.nombre}
+                {tratamientos.map((t: Vacuna_desparacitacion) => (
+                  <option key={t.pk_tratamiento} value={t.nombre || `Tratamiento ${t.id_tratamiento}`}>
+                    {t.nombre || `Tratamiento ${t.pk_tratamiento}`}
                   </option>
                 ))}
               </select>
