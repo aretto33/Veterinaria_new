@@ -104,7 +104,6 @@ export function CartillasView({ cartillas, mascotas }: { cartillas: any[], masco
   })}
 </div>
 
-        {/* 2. VISTA DE EXPEDIENTE DETALLADO */}
         <div className="lg:col-span-2">
           {selectedId ? (
             <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden sticky top-8">

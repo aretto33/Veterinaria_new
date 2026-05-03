@@ -447,9 +447,9 @@ export function VeterinarioView({
                 value={formData.tratamiento}
                 onChange={(e) => setFormData({...formData, tratamiento: e.target.value}) }>
                 <option value="">Selecciona un tratamiento</option>
-                {tratamientos.map((t: Vacuna_desparacitacion) => (
-                  <option key={t.pk_tratamiento} value={t.nombre || `Tratamiento ${t.id_tratamiento}`}>
-                    {t.nombre || `Tratamiento ${t.pk_tratamiento}`}
+                {tratamientoOptions.map((tratamiento) => (
+                  <option key={tratamiento.id} value={tratamiento.id}>
+                    {tratamiento.nombre}
                   </option>
                 ))}
               </select>

@@ -1,11 +1,12 @@
 import os
 import mariadb
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory, Response, session
+from flask import Blueprint, Flask, jsonify, request, send_from_directory, Response, session
 from PIL import Image, UnidentifiedImageError
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from fpdf import FPDF
 
 load_dotenv()
 
@@ -114,6 +115,144 @@ def get_user_related_ids(cursor, user_id, role_id):
 def health():
     return jsonify({"status": "ok"})
 
+#-------------------------
+
+bp = Blueprint('pdf', __name__)
+
+@bp.route("/pdf_historial")
+def pdf_historial():
+    mascota_id = request.args.get("pk_mascota", type=int)
+    if not mascota_id:
+        mascota_id = request.args.get("id_mascota", type=int)
+    if not mascota_id:
+        return validation_error("Debes proporcionar pk_mascota o id_mascota")
+    
+    conn, cursor = conectar_bd()
+    if not conn:
+        return validation_error("Error en la conexion de la base de datos", 500)
+
+    try:
+        cursor.execute(
+            """
+            SELECT pk_mascota, nombre, especie, raza, fecha_nacimiento
+            FROM Mascotas
+            WHERE pk_mascota = %s
+            """,
+            (mascota_id,),
+        )
+        mascota = cursor.fetchone()
+        if not mascota:
+            return validation_error(f"Mascota no encontrada para pk_mascota={mascota_id}", 404)
+
+        cursor.execute(
+            """
+            SELECT c.fecha_atencion, c.peso, c.diagnostico, c.receta_medicamento,
+                   t.nombre, t.descripcion
+            FROM Cartilla_Vacunacion c
+            LEFT JOIN Tratamientos t ON c.fk_tratamiento = t.pk_tratamiento
+            WHERE c.fk_mascota = %s
+            ORDER BY c.fecha_atencion DESC, c.pk_cartilla DESC
+            """,
+            (mascota_id,),
+        )
+        registros = cursor.fetchall()
+
+        return generar_pdf_historial(mascota, registros)
+    except mariadb.Error as error:
+        return validation_error(f"No se pudo generar el historial: {error}", 500)
+    finally:
+        conn.close()
+
+
+def format_pdf_value(value, fallback="Sin dato"):
+    if value in (None, ""):
+        return fallback
+
+    if hasattr(value, "strftime"):
+        return value.strftime("%d/%m/%Y")
+
+    return str(value)
+
+
+def generar_pdf_historial(mascota, registros):
+    mascota_id, nombre, especie, raza, fecha_nacimiento = mascota
+    filename_base = "".join(char if char.isalnum() else "_" for char in str(nombre or f"mascota_{mascota_id}")).strip("_")
+    if not filename_base:
+        filename_base = f"mascota_{mascota_id}"
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_title(f"Historial clinico - {nombre}")
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "Historial Clinico", ln=1)
+    pdf.set_font("Helvetica", "", 11)
+    pdf.cell(0, 8, f"Mascota: {format_pdf_value(nombre)}", ln=1)
+    pdf.cell(0, 8, f"Especie: {format_pdf_value(especie)}", ln=1)
+    pdf.cell(0, 8, f"Raza: {format_pdf_value(raza)}", ln=1)
+    pdf.cell(
+        0,
+        8,
+        f"Fecha de nacimiento: {format_pdf_value(fecha_nacimiento, 'Sin registro')}",
+        ln=1,
+    )
+    pdf.ln(4)
+
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.cell(0, 10, "Registros Clinicos", ln=1)
+
+    if not registros:
+        pdf.set_font("Helvetica", "", 11)
+        pdf.multi_cell(0, 8, "Esta mascota aun no tiene registros clinicos guardados.")
+    else:
+        for index, registro in enumerate(registros, start=1):
+            fecha_atencion, peso, diagnostico, receta, tratamiento_nombre, tratamiento_descripcion = registro
+
+            if pdf.get_y() > 230:
+                pdf.add_page()
+
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.cell(
+                0,
+                8,
+                f"Registro {index} - {format_pdf_value(fecha_atencion, 'Sin fecha')}",
+                ln=1,
+            )
+
+            detalles = [
+                ("Peso", f"{peso} kg" if peso not in (None, "") else "Sin dato"),
+                ("Tratamiento", format_pdf_value(tratamiento_nombre, "No especificado")),
+                ("Descripcion del tratamiento", format_pdf_value(tratamiento_descripcion, "Sin descripcion")),
+                ("Diagnostico", format_pdf_value(diagnostico, "Sin diagnostico")),
+                ("Receta / indicaciones", format_pdf_value(receta, "Sin indicaciones")),
+            ]
+
+            for etiqueta, valor in detalles:
+                pdf.set_font("Helvetica", "B", 10)
+                pdf.cell(52, 7, f"{etiqueta}:")
+                pdf.set_font("Helvetica", "", 10)
+                pdf.multi_cell(0, 7, valor)
+
+            pdf.ln(2)
+
+    pdf_bytes = pdf.output(dest="S")
+    if isinstance(pdf_bytes, str):
+        pdf_bytes = pdf_bytes.encode("latin-1")
+
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="historial_clinico_{filename_base}.pdf"'
+        },
+    )
+
+
+app.register_blueprint(bp, url_prefix="/api")
+
+#------------------
+
 #---- Funcion de inicio 
 @app.get("/api/bootstrap")
 def bootstrap():
@@ -183,14 +322,14 @@ def bootstrap():
 
         cursor.execute(
             """
-            SELECT nombre, descripcion FROM Tratamientos
+            SELECT pk_tratamiento, nombre, descripcion FROM Tratamientos
             """
         )
         tratamientos = [
             {
                 "pk_tratamiento": row[0],
-                "nombre": row[0],
-                "descripcion": row[1],
+                "nombre": row[1],
+                "descripcion": row[2],
             }
             for row in cursor.fetchall()
         ]
@@ -646,6 +785,17 @@ def create_mascota():
         return validation_error("No se pudo conectar a la base de datos", 500)
 
     try:
+        fk_cliente = int(data["fk_cliente"])
+        fecha_nacimiento = str(data.get("Fecha_Nacimiento", "")).strip() or None
+
+        cursor.execute(
+            "SELECT pk_cliente FROM Cliente WHERE pk_cliente = %s",
+            (fk_cliente,),
+        )
+        if not cursor.fetchone():
+            conn.rollback()
+            return validation_error(f"El cliente con ID {fk_cliente} no existe", 400)
+
         cursor.execute(
             """
             INSERT INTO Mascotas (nombre, especie, raza, fecha_nacimiento, fk_cliente)
@@ -655,8 +805,8 @@ def create_mascota():
                 data["Nombre"].strip(),
                 data["Especie"].strip(),
                 data["Raza"].strip(),
-                data.get("Fecha_Nacimiento", ""),
-                int(data["fk_cliente"]),
+                fecha_nacimiento,
+                fk_cliente,
             ),
         )
         mascota_id = cursor.lastrowid
@@ -669,12 +819,15 @@ def create_mascota():
                     "Nombre": data["Nombre"].strip(),
                     "Especie": data["Especie"].strip(),
                     "Raza": data["Raza"].strip(),
-                    "Fecha_Nacimiento": data.get("Fecha_Nacimiento", ""),
-                    "fk_cliente": int(data["fk_cliente"]),
+                    "Fecha_Nacimiento": fecha_nacimiento or "",
+                    "fk_cliente": fk_cliente,
                 }
             ),
             201,
         )
+    except (TypeError, ValueError):
+        conn.rollback()
+        return validation_error("fk_cliente debe ser un numero valido", 400)
     except mariadb.Error as error:
         conn.rollback()
         return validation_error(f"No se pudo registrar la mascota: {error}", 500)
@@ -694,6 +847,9 @@ def create_cartilla():
         "fk_tratamiento",
     ]
     missing_fields = [field for field in required_fields if data.get(field) in (None, "")]
+    if "fk_tratamiento" in missing_fields and data.get("tratamiento") not in (None, ""):
+        missing_fields.remove("fk_tratamiento")
+
     if missing_fields:
         return validation_error(
             f"Faltan campos obligatorios: {', '.join(missing_fields)}"
@@ -704,6 +860,61 @@ def create_cartilla():
         return validation_error("No se pudo conectar a la base de datos", 500)
 
     try:
+        fk_veterinario = int(data.get("fk_veterinario") or data.get("fk_veterinanio") or 0)
+
+        fk_tratamiento = None
+        tratamiento_str = str(data.get("tratamiento", "")).strip()
+
+        if tratamiento_str:
+            if tratamiento_str.startswith("Tratamiento "):
+                try:
+                    candidate = int(tratamiento_str.replace("Tratamiento ", ""))
+                    cursor.execute(
+                        "SELECT pk_tratamiento FROM Tratamientos WHERE pk_tratamiento = %s",
+                        (candidate,),
+                    )
+                    if cursor.fetchone():
+                        fk_tratamiento = candidate
+                except ValueError:
+                    fk_tratamiento = None
+
+            if not fk_tratamiento:
+                cursor.execute(
+                    "SELECT pk_tratamiento FROM Tratamientos WHERE nombre = %s",
+                    (tratamiento_str,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    fk_tratamiento = int(row[0])
+
+        if not fk_tratamiento:
+            raw_fk_tratamiento = data.get("fk_tratamiento")
+            if raw_fk_tratamiento not in (None, ""):
+                try:
+                    candidate = int(raw_fk_tratamiento)
+                    cursor.execute(
+                        "SELECT pk_tratamiento FROM Tratamientos WHERE pk_tratamiento = %s",
+                        (candidate,),
+                    )
+                    if cursor.fetchone():
+                        fk_tratamiento = candidate
+                except (ValueError, TypeError):
+                    fk_tratamiento = None
+
+        if not fk_tratamiento:
+            cursor.execute(
+                "SELECT pk_tratamiento FROM Tratamientos ORDER BY pk_tratamiento LIMIT 1"
+            )
+            row = cursor.fetchone()
+            if row:
+                fk_tratamiento = int(row[0])
+
+        if not fk_tratamiento:
+            return validation_error(
+                "No hay tratamientos válidos disponibles para registrar la cartilla",
+                400,
+            )
+
         cursor.execute(
             """
             INSERT INTO Cartilla_Vacunacion (
@@ -718,8 +929,8 @@ def create_cartilla():
                 data["diagnostico"],
                 data["receta_medicamento"],
                 int(data["fk_mascota"]),
-                int(data.get("fk_veterinario", data.get("fk_veterinanio", 0))),
-                int(data["fk_tratamiento"]),
+                fk_veterinario,
+                fk_tratamiento,
             ),
         )
         cartilla_id = cursor.lastrowid
@@ -734,8 +945,8 @@ def create_cartilla():
                     "diagnostico": data["diagnostico"],
                     "receta_medicamento": data["receta_medicamento"],
                     "fk_mascota": int(data["fk_mascota"]),
-                    "fk_veterinario": int(data.get("fk_veterinario", data.get("fk_veterinanio", 0))),
-                    "fk_tratamiento": int(data["fk_tratamiento"]),
+                    "fk_veterinario": fk_veterinario,
+                    "fk_tratamiento": fk_tratamiento,
                 }
             ),
             201,
@@ -749,8 +960,6 @@ def create_cartilla():
 @app.put("/api/cartillas/<int:cartilla_id>")
 def update_cartilla(cartilla_id):
     data = request.get_json(silent=True) or {}
-
-
 
     conn, cursor = conectar_bd()
     if not conn:
@@ -770,6 +979,61 @@ def update_cartilla(cartilla_id):
             conn.rollback()
             return validation_error("Cartilla no existe",404)
 
+        fk_veterinario = int(data.get("fk_veterinario", 0))
+        fk_tratamiento = None
+        tratamiento_str = str(data.get("tratamiento", "")).strip()
+
+        if tratamiento_str:
+            if tratamiento_str.startswith("Tratamiento "):
+                try:
+                    candidate = int(tratamiento_str.replace("Tratamiento ", ""))
+                    cursor.execute(
+                        "SELECT pk_tratamiento FROM Tratamientos WHERE pk_tratamiento = %s",
+                        (candidate,),
+                    )
+                    if cursor.fetchone():
+                        fk_tratamiento = candidate
+                except ValueError:
+                    fk_tratamiento = None
+
+            if not fk_tratamiento:
+                cursor.execute(
+                    "SELECT pk_tratamiento FROM Tratamientos WHERE nombre = %s",
+                    (tratamiento_str,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    fk_tratamiento = int(row[0])
+
+        if not fk_tratamiento:
+            raw_fk_tratamiento = data.get("fk_tratamiento")
+            if raw_fk_tratamiento not in (None, ""):
+                try:
+                    candidate = int(raw_fk_tratamiento)
+                    cursor.execute(
+                        "SELECT pk_tratamiento FROM Tratamientos WHERE pk_tratamiento = %s",
+                        (candidate,),
+                    )
+                    if cursor.fetchone():
+                        fk_tratamiento = candidate
+                except (ValueError, TypeError):
+                    fk_tratamiento = None
+
+        if not fk_tratamiento:
+            cursor.execute(
+                "SELECT pk_tratamiento FROM Tratamientos ORDER BY pk_tratamiento LIMIT 1"
+            )
+            row = cursor.fetchone()
+            if row:
+                fk_tratamiento = int(row[0])
+
+        if not fk_tratamiento:
+            conn.rollback()
+            return validation_error(
+                "No hay tratamientos válidos disponibles para actualizar la cartilla",
+                400,
+            )
+
         cursor.execute(
             """
             UPDATE Cartilla_Vacunacion
@@ -787,8 +1051,8 @@ def update_cartilla(cartilla_id):
                 data["diagnostico"],
                 data["receta_medicamento"],
                 int(data["fk_mascota"]),
-                int(data.get("fk_veterinario", 0)),
-                int(data["fk_tratamiento"]),
+                fk_veterinario,
+                fk_tratamiento,
                 cartilla_id,
             ),
         )
@@ -801,8 +1065,8 @@ def update_cartilla(cartilla_id):
                 "diagnostico": data["diagnostico"],
                 "receta_medicamento": data["receta_medicamento"],
                 "fk_mascota": int(data["fk_mascota"]),
-                "fk_veterinario": int(data.get("fk_veterinario", 0)),
-                "fk_tratamiento": int(data["fk_tratamiento"]),
+                "fk_veterinario": fk_veterinario,
+                "fk_tratamiento": fk_tratamiento,
             }
         )
     except KeyError as error:
