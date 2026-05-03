@@ -198,12 +198,17 @@ export function ClienteView({
   // Metodo agregar_mascotas() segun diagrama UML de la clase Cliente
   const agregar_mascotas = () => {
     if (validateForm()) {
+      if (!clientId) {
+        toast.error('No se pudo identificar al cliente activo')
+        return
+      }
+
       onAgregarMascota({
         Nombre: mascotaForm.Nombre,
         Especie: mascotaForm.Especie,
         Raza: mascotaForm.Raza,
         Fecha_Nacimiento: mascotaForm.Fecha_Nacimiento || '',
-        fk_cliente: clientId || 1
+        fk_cliente: clientId
       })
       setIsMascotaDialogOpen(false)
       setMascotaForm({

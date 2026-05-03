@@ -30,7 +30,16 @@ export function CalendarioView({ citas }: CalendarioViewProps) {
   }, [citas, selectedDate])
 
   {/*sECCIÓN EN LA CUAL SE MANDA EL WAHTSAPP */}
-  const abrirWhatsapp = (telefono: string, veterinario: string, fecha: string, hora: string) => {
+  const abrirWhatsapp = (
+    telefono = '',
+    veterinario = '',
+    fecha = '',
+    hora = ''
+  ) => {
+    if (!telefono) {
+      return
+    }
+
     const mensaje = encodeURIComponent(`Te recordamos que tienes una cita con el Veterinario ${veterinario} el día ${fecha} a las ${hora}. ¡No olvides llevar a tu mascota!`)
     window.open(`https://wa.me/${telefono}?text=${mensaje}`, '_blank')
   }
