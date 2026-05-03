@@ -240,7 +240,7 @@ def bootstrap():
         cursor.execute(
             """
             SELECT c.pk_cita, c.fecha_hora, c.estado, c.motivo_consulta,
-                   c.fk_cliente, c.fk_veterinario, c.fk_mascota,
+                   c.fk_cliente, c.fk_veterinario, c.fk_mascota, c.fk_servicio,
                    m.nombre,
                    p.nombre, p.apellidos,
                    v.direcc_consultorio,
@@ -266,11 +266,11 @@ LEFT JOIN Servicios s ON s.pk_servicio = c.fk_servicio
                 "fk_cliente": row[4],
                 "fk_veterinario": row[5],
                 "fk_mascota": row[6],
-                "fk_servicio": None,
-                "mascota": row[7],
-                "veterinario": f"{row[8]} {row[9]}".strip(),
-                "direccion": row[10] or "",
-                "servicio": row[11] or "Consulta",
+                "fk_servicio": row[7],
+                "mascota": row[8],
+                "veterinario": f"{row[9]} {row[10]}".strip(),
+                "direccion": row[11] or "",
+                "servicio": row[12] or "Consulta",
             }
             for row in cursor.fetchall()
         ]
@@ -824,6 +824,7 @@ def create_cita():
         "fk_cliente",
         "fk_veterinario",
         "fk_mascota",
+        "fk_servicio",
     ]
     missing_fields = [field for field in required_fields if data.get(field) in (None, "")]
     if missing_fields:
