@@ -41,7 +41,10 @@ export function CalendarioView() {
             </div>
             <div className="divide-y divide-slate-50">
               {agendaHoy.map((item) => (
-                <div key={item.id} className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                <div
+                  key={`${item.id}-${item.hora}-${item.mascota}`}
+                  className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors"
+                >
                   <div className="flex items-center gap-6">
                     <span className="text-sm font-bold text-slate-400 w-20">{item.hora}</span>
                     <div className={`p-3 rounded-2xl ${

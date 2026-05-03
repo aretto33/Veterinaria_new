@@ -247,8 +247,11 @@ export function ListaVeterinariosView({
           </div>
         ) : (
           <div className="grid gap-4">
-            {citasAgendadas.map((cita) => ( // Revisar esta parte de la ruta de lista veterinarios
-              <div key={cita.id} className="rounded-2xl border border-slate-200 p-5">
+            {citasAgendadas.map((cita, index) => (
+              <div
+                key={`${cita.id}-${cita.fecha}-${cita.hora}-${index}`}
+                className="rounded-2xl border border-slate-200 p-5"
+              >
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
                     <p className="text-lg font-bold text-slate-900">{cita.servicio}</p>

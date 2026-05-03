@@ -9,7 +9,8 @@ import {
   LogOut,
   Settings,
   User,
-  Wrench
+  Wrench,
+  LifeBuoy
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -35,12 +36,15 @@ export function AppSidebar({
         { id: 'cartillas', label: 'Cartillas', icon: FileText },
         { id: 'calendario', label: 'Calendario', icon: Calendar },
         { id: 'admin_veterinario_servicio', label: 'Servicios Veterinario', icon: Wrench },
+        { id: 'ayuda-section', label: 'Ayuda', icon: LifeBuoy },
+        
       ]
     : userRole === 1 // Cliente
    ? [
         { id: 'cliente', label: 'Mis Mascotas', icon: PawPrint },
         { id: 'veterinarios_lista', label: 'Servicios', icon: Stethoscope }, // <--- NUEVO
         { id: 'citas', label: 'Mis Citas', icon: Calendar },
+        { id: 'ayuda-section', label: 'Ayuda', icon: LifeBuoy },
       ]
     : []
 

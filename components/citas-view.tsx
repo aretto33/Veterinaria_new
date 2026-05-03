@@ -20,7 +20,10 @@ const parseDate = (date: string) => {
 export function CitasView({ citas, onCancelCita }: CitasViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
 
-  const fechasConCitas = useMemo(() => citas.map((cita) => parseDate(cita.fecha)), [citas])
+  const fechasConCitas = useMemo(() => {
+    const uniqueDates = Array.from(new Set(citas.map((cita) => cita.fecha).filter(Boolean)))
+    return uniqueDates.map((fecha) => parseDate(fecha))
+  }, [citas])
 
   const citasDelDia = useMemo(() => {
     if (!selectedDate) {
@@ -91,8 +94,11 @@ export function CitasView({ citas, onCancelCita }: CitasViewProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {citasDelDia.map((cita) => ( // Revisar esta parte de las citas con los veterinarios
-                <div key={cita.id} className="rounded-[1.5rem] border border-slate-200 p-5">
+              {citasDelDia.map((cita, index) => (
+                <div
+                  key={`${cita.id}-${cita.fecha}-${cita.hora}-${index}`}
+                  className="rounded-[1.5rem] border border-slate-200 p-5"
+                >
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
                       <p className="text-lg font-bold text-slate-900">{cita.servicio}</p>

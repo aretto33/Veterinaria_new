@@ -23,13 +23,42 @@ import { CalendarioView } from '@/components/calendario-view'
 import { ListaVeterinariosView } from '@/components/lista-veterinarios-view'
 import { AdminServiciosView } from '@/components/admin-servicios-view'
 import { AdminVeterinarioServicioView } from '@/components/admin-veterinario-servicio-view'
+import { AyudaSection } from '@/components/ayuda-section'
 import { Menu, X, ShieldCheck, Smartphone, MessageCircle, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
 
-type View = 'dashboard' | 'login' | 'veterinario' | 'cliente' | 'cartillas' | 'calendario' | 'citas' | 'settings' | 'veterinarios_lista' | 'admin_servicios' | 'admin_veterinario_servicio'
+type View = 'dashboard' | 'login' | 'veterinario' | 'cliente' | 'cartillas' | 'calendario' | 'citas' | 'settings' | 'veterinarios_lista' | 'admin_servicios' | 'admin_veterinario_servicio' | 'ayuda-section'
+
+const mapCitaAgendada = (cita: any): CitaAgendada => {
+  const fecha = new Date(cita.fecha_hora)
+  const hasValidDate = !Number.isNaN(fecha.getTime())
+
+  return {
+    id: Number(cita.id ?? cita.pk_cita ?? 0),
+    servicio: cita.servicio,
+    mascota: cita.mascota,
+    veterinario: cita.veterinario,
+    fecha: hasValidDate ? fecha.toISOString().slice(0, 10) : '',
+    hora: hasValidDate ? fecha.toTimeString().slice(0, 5) : '',
+    direccion: cita.direccion,
+    motivo: cita.motivo,
+  }
+}
+
+const dedupeCitas = (citas: CitaAgendada[]) => {
+  const uniqueCitas = new Map<number, CitaAgendada>()
+
+  for (const cita of citas) {
+    if (!uniqueCitas.has(cita.id)) {
+      uniqueCitas.set(cita.id, cita)
+    }
+  }
+
+  return Array.from(uniqueCitas.values())
+}
 
 export default function MediVetApp() {
   const [currentView, setCurrentView] = useState<View>('dashboard')
@@ -65,28 +94,7 @@ export default function MediVetApp() {
         setTratamientos(data.tratamientos || [])
         setVeterinarioServicios(data.veterinarioServicios || [])
         setAgendaVeterinarios(data.agendaVeterinarios || [])
-        setCitasAgendadas(
-          (data.citas || []).map((cita: any) => {
-            const fecha = new Date(cita.fecha_hora)
-            const fechaTexto = Number.isNaN(fecha.getTime())
-              ? ''
-              : fecha.toISOString().slice(0, 10)
-            const horaTexto = Number.isNaN(fecha.getTime())
-              ? ''
-              : fecha.toTimeString().slice(0, 5)
-
-            return {
-              id: cita.id,
-              servicio: cita.servicio,
-              mascota: cita.mascota,
-              veterinario: cita.veterinario,
-              fecha: fechaTexto,
-              hora: horaTexto,
-              direccion: cita.direccion,
-              motivo: cita.motivo,
-            }
-          })
-        )
+        setCitasAgendadas(dedupeCitas((data.citas || []).map(mapCitaAgendada)))
         setNombresUsuarios(data.nombresUsuarios)
       } catch (error) {
         const message =
@@ -376,7 +384,7 @@ export default function MediVetApp() {
             )
           : null
 
-        if (!mascota || !profesional) {
+        if (!mascota || !servicio || !profesional) {
           throw new Error('No se pudo relacionar la cita con la base de datos')
         }
 
@@ -389,6 +397,7 @@ export default function MediVetApp() {
             fk_cliente: currentUser.cliente_id,
             fk_veterinario: profesional.fk_veterinario,
             fk_mascota: mascota.id,
+            fk_servicio: servicio.id_servicio,
           }),
         })
 
@@ -397,7 +406,7 @@ export default function MediVetApp() {
           throw new Error(data.message || 'No se pudo crear la cita')
         }
 
-        setCitasAgendadas((prev) => [{ id: data.id, ...cita }, ...prev])
+        setCitasAgendadas((prev) => dedupeCitas([{ id: data.id, ...cita }, ...prev]))
         toast.success('Cita agendada correctamente')
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'No se pudo agendar la cita')
@@ -537,6 +546,9 @@ export default function MediVetApp() {
         ) : (
           <SettingsView userId={0} userName="Usuario" userEmail="" />
         )
+
+      case 'ayuda-section':
+        return <AyudaSection userRole={currentUser?.role_id ?? null} />
 
       default:
         return (
