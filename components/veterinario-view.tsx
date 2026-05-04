@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Cartilla_Vacunacion, Mascotas, Vacuna_desparacitacion, CitaAgendada } from '@/lib/types'
+import {
+  Cartilla_Vacunacion,
+  CitaAgendada,
+  Mascotas,
+  Vacuna_desparacitacion,
+  VeterinarioAgenda,
+} from '@/lib/types'
 import { 
   Plus, 
   Pencil, 
@@ -43,6 +49,7 @@ interface VeterinarioViewProps {
   tratamientos: Vacuna_desparacitacion[]
   currentVeterinarioId: number | null
   citasAgendadas: CitaAgendada[]
+  agendaVeterinarios: VeterinarioAgenda[]
   onCreateCartilla: (cartilla: Omit<Cartilla_Vacunacion, 'id'>) => void
   onUpdateCartilla: (cartilla: Cartilla_Vacunacion) => void
 }
@@ -52,6 +59,8 @@ export function VeterinarioView({
   mascotas,
   tratamientos,
   currentVeterinarioId,
+  citasAgendadas,
+  agendaVeterinarios,
   onCreateCartilla, 
   onUpdateCartilla 
 }: VeterinarioViewProps) {
@@ -69,6 +78,19 @@ export function VeterinarioView({
     fk_tratamiento: 0,
     tratamiento: ''
   })
+
+  const getLocalDateText = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const todayText = getLocalDateText(new Date())
+  const citasDeHoy = citasAgendadas.filter((cita) => cita.fecha === todayText)
+  const agendaDelVeterinario = currentVeterinarioId
+    ? agendaVeterinarios.filter((item) => item.fk_veterinario === currentVeterinarioId)
+    : []
 
   const getMascotaNombre = (fk_mascota: number) => {
     return mascotas.find(m => m.id === fk_mascota)?.Nombre || 'Desconocido'
@@ -171,7 +193,6 @@ export function VeterinarioView({
                 <FileText className="w-6 h-6 text-primary" />
               </div>
               <div>
-                {/* Aquí se muestra el total de cartillas, puedes ajustar según lo que quieras destacar */}
                 <p className="text-2xl font-bold">{cartillas.length}</p>
                 <p className="text-sm text-muted-foreground">Total Cartillas</p>
               </div>
@@ -185,7 +206,7 @@ export function VeterinarioView({
                 <Calendar className="w-6 h-6 text-accent" />
               </div>
               <div>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">{citasDeHoy.length}</p>
                 <p className="text-sm text-muted-foreground">Citas Hoy</p>
               </div>
             </div>
@@ -198,8 +219,8 @@ export function VeterinarioView({
                 <Stethoscope className="w-6 h-6 text-foreground" />
               </div>
               <div>
-                <p className="text-2xl font-bold">8</p>
-                <p className="text-sm text-muted-foreground">Atenciones Mes</p>
+                <p className="text-2xl font-bold">{agendaDelVeterinario.length}</p>
+                <p className="text-sm text-muted-foreground">Horarios en Agenda</p>
               </div>
             </div>
           </CardContent>
@@ -211,10 +232,71 @@ export function VeterinarioView({
                 <Pill className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">45</p>
+                <p className="text-2xl font-bold">
+                  {cartillas.filter((cartilla) => cartilla.receta_medicamento.trim()).length}
+                </p>
                 <p className="text-sm text-muted-foreground">Recetas Emitidas</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Citas de hoy</CardTitle>
+            <CardDescription>Las citas asignadas al veterinario autenticado para el día de hoy.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {citasDeHoy.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-muted-foreground/20 bg-muted/30 p-4 text-sm text-muted-foreground">
+                No hay citas agendadas para hoy.
+              </div>
+            ) : (
+              citasDeHoy.map((cita) => (
+                <div key={cita.id} className="rounded-xl border p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold text-foreground">{cita.servicio}</p>
+                      <p className="text-sm text-muted-foreground">{cita.mascota}</p>
+                    </div>
+                    <Badge variant="outline">{cita.hora}</Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{cita.motivo}</p>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Agenda del veterinario</CardTitle>
+            <CardDescription>Horarios cargados desde la tabla `Agenda_Veterinario`.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {agendaDelVeterinario.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-muted-foreground/20 bg-muted/30 p-4 text-sm text-muted-foreground">
+                No hay agenda registrada para este veterinario.
+              </div>
+            ) : (
+              agendaDelVeterinario.map((slot) => (
+                <div key={`${slot.fk_veterinario}-${slot.dia}-${slot.hora_inicio}-${slot.hora_fin}`} className="rounded-xl border p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-semibold text-foreground">{slot.dia}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {slot.hora_inicio} - {slot.hora_fin}
+                      </p>
+                    </div>
+                    <Badge variant={slot.disponible ? 'default' : 'secondary'}>
+                      {slot.disponible ? 'Disponible' : 'No disponible'}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

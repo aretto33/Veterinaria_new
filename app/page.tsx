@@ -38,15 +38,18 @@ const mapCitaAgendada = (cita: any): CitaAgendada => {
 
   return {
     id: Number(cita.id ?? cita.pk_cita ?? 0),
-    servicio: cita.servicio,
-    mascota: cita.mascota,
-    veterinario: cita.veterinario,
-    fecha: hasValidDate ? fecha.toISOString().slice(0, 10) : '',
+    servicio: cita.servicio || 'Consulta',
+    mascota: cita.mascota || `Mascota #${cita.fk_mascota ?? ''}`.trim(),
+    veterinario: cita.veterinario || `Veterinario #${cita.fk_veterinario ?? ''}`.trim(),
+    fecha: hasValidDate
+      ? `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
+      : '',
     hora: hasValidDate ? fecha.toTimeString().slice(0, 5) : '',
     direccion: cita.direccion,
     motivo: cita.motivo,
     fk_cliente: cita.fk_cliente ?? undefined,
     fk_veterinario: cita.fk_veterinario ?? undefined,
+    estado: cita.estado,
   }
 }
 
@@ -78,20 +81,23 @@ export default function MediVetApp() {
 
   const normalizarCita = useCallback((cita: any): CitaAgendada => {
     const fecha = new Date(cita.fecha_hora)
-    const fechaTexto = Number.isNaN(fecha.getTime()) ? '' : fecha.toISOString().slice(0, 10)
+    const fechaTexto = Number.isNaN(fecha.getTime())
+      ? ''
+      : `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
     const horaTexto = Number.isNaN(fecha.getTime()) ? '' : fecha.toTimeString().slice(0, 5)
 
     return {
       id: cita.id,
-      servicio: cita.servicio,
-      mascota: cita.mascota,
-      veterinario: cita.veterinario,
+      servicio: cita.servicio || 'Consulta',
+      mascota: cita.mascota || `Mascota #${cita.fk_mascota ?? ''}`.trim(),
+      veterinario: cita.veterinario || `Veterinario #${cita.fk_veterinario ?? ''}`.trim(),
       fecha: fechaTexto,
       hora: horaTexto,
       direccion: cita.direccion,
       motivo: cita.motivo,
       fk_cliente: cita.fk_cliente ?? undefined,
       fk_veterinario: cita.fk_veterinario ?? undefined,
+      estado: cita.estado,
     }
   }, [])
 
@@ -150,14 +156,18 @@ export default function MediVetApp() {
   }, [])
 
   const citasDelCliente =
-    currentUser?.role_id === 1 && currentUser.cliente_id
-      ? citasAgendadas.filter((cita) => cita.fk_cliente === currentUser.cliente_id)
-      : citasAgendadas
+    currentUser?.role_id === 1
+      ? citasAgendadas.filter((cita) =>
+          cita.fk_cliente == currentUser.cliente_id
+        )
+      : []
 
     const citasDelVeterinario =
-    currentUser?.role_id === 2 && currentUser.veterinario_id
-      ? citasAgendadas.filter((cita) => cita.fk_veterinario === currentUser.veterinario_id)
-      : citasAgendadas
+    currentUser?.role_id === 2
+      ? citasAgendadas.filter((cita) =>
+          cita.fk_veterinario == currentUser.veterinario_id
+        )
+      : []
 
   const getNombreCompleto = useCallback(
 
@@ -461,7 +471,7 @@ export default function MediVetApp() {
             fk_veterinario: profesional.fk_veterinario,
             fk_mascota: mascota.id,
             fk_servicio: servicios.find((s) => s.nombre === cita.servicio)?.id_servicio,
-
+            estado: cita.estado,
           }),
         })
 
@@ -482,6 +492,29 @@ export default function MediVetApp() {
 
     void save()
   }, [currentUser, mascotas, servicios, veterinarioServicios])
+
+  const handleUpdateCitaStatus = useCallback(async (citaId: number, nuevoEstado: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/citas/${citaId}/estatus`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.message || 'No se pudo actualizar el estatus')
+      }
+
+      setCitasAgendadas((prev) =>
+        prev.map((cita) => (cita.id === citaId ? { ...cita, estado: nuevoEstado } : cita))
+      )
+      toast.success(`Estado actualizado a ${nuevoEstado}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al actualizar el estado'
+      toast.error(message)
+    }
+  }, [])
 
   const handleCancelarCita = useCallback((id: number) => {
     const remove = async () => {
@@ -531,6 +564,7 @@ export default function MediVetApp() {
             tratamientos={tratamientos}
             currentVeterinarioId={currentUser?.veterinario_id ?? null}
             citasAgendadas={citasDelVeterinario}
+            agendaVeterinarios={agendaVeterinarios}
             onCreateCartilla={handleCreateCartilla}
             onUpdateCartilla={handleUpdateCartilla}
           />
@@ -540,7 +574,10 @@ export default function MediVetApp() {
         return <CartillasView cartillas={cartillas} mascotas={mascotas} />
 
       case 'calendario':
-        return <CalendarioView citas={citasAgendadas} />
+        return <CalendarioView
+          citas={currentUser?.role_id === 2 ? citasDelVeterinario : citasDelCliente}
+          onUpdateCitaStatus={handleUpdateCitaStatus}
+        />
 
       case 'admin_servicios':
         return (
@@ -590,7 +627,10 @@ export default function MediVetApp() {
         )
 
       case 'citas':
-        return <CitasView citas={citasDelCliente} onCancelCita={handleCancelarCita} />
+        return <CitasView
+          citas={currentUser?.role_id === 2 ? citasDelVeterinario : citasDelCliente}
+          onCancelCita={handleCancelarCita}
+        />
 
       case 'settings':
         return currentUser ? (

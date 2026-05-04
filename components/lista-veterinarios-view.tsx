@@ -123,6 +123,7 @@ export function ListaVeterinariosView({
       hora: formData.hora,
       direccion: selectedVet.direccion,
       motivo: formData.motivo,
+      estado: 'Agendada',
     })
 
     setIsBookingOpen(false)

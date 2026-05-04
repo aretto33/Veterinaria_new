@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { CalendarClock, Clock, Info, MapPin, Trash2, User as UserIcon } from 'lucide-react'
+import { CalendarClock, Clock, Info, MapPin, Trash2, User as UserIcon, CheckCircle2, Timer, XCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -20,6 +20,21 @@ const parseDate = (date: string) => {
 export function CitasView({ citas, onCancelCita }: CitasViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
 
+  const getStatusConfig = (estado?: string) => {
+    switch (estado?.toLowerCase()) {
+      case 'aceptada':
+        return { color: 'text-blue-600 bg-blue-50 border-blue-100', icon: CheckCircle2 }
+      case 'finalizada':
+        return { color: 'text-emerald-600 bg-emerald-50 border-emerald-100', icon: CheckCircle2 }
+      case 'cancelada':
+        return { color: 'text-red-600 bg-red-50 border-red-100', icon: XCircle }
+      case 'agendada':
+      case 'pendiente':
+      default:
+        return { color: 'text-amber-600 bg-amber-50 border-amber-100', icon: Timer }
+    }
+  }
+
   const fechasConCitas = useMemo(() => {
     const uniqueDates = Array.from(new Set(citas.map((cita) => cita.fecha).filter(Boolean)))
     return uniqueDates.map((fecha) => parseDate(fecha))
@@ -30,7 +45,10 @@ export function CitasView({ citas, onCancelCita }: CitasViewProps) {
       return citas
     }
 
-    const selectedDateText = selectedDate.toISOString().slice(0, 10)
+    const year = selectedDate.getFullYear()
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
+    const day = String(selectedDate.getDate()).padStart(2, '0')
+    const selectedDateText = `${year}-${month}-${day}`
     return citas.filter((cita) => cita.fecha === selectedDateText)
   }, [citas, selectedDate])
 
@@ -141,13 +159,27 @@ export function CitasView({ citas, onCancelCita }: CitasViewProps) {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex gap-3 border-t border-slate-100 pt-4">
-                    <div className="rounded-xl bg-blue-50 p-2 text-blue-600">
-                      <Info className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase text-blue-400">Motivo</p>
-                      <p className="text-sm text-slate-700">{cita.motivo}</p>
+                  <div className="mt-4 space-y-4 border-t border-slate-100 pt-4">
+                    <div className="flex gap-3">
+                      <div className="rounded-xl bg-blue-50 p-2 text-blue-600">
+                        <Info className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[10px] font-bold uppercase text-blue-400">Motivo</p>
+                        <p className="text-sm text-slate-700">{cita.motivo}</p>
+                      </div>
+                      <div>
+                        {(() => {
+                          const config = getStatusConfig(cita.estado)
+                          const StatusIcon = config.icon
+                          return (
+                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold uppercase tracking-wider ${config.color}`}>
+                              <StatusIcon className="w-3.5 h-3.5" />
+                              {cita.estado || 'Pendiente'}
+                            </div>
+                          )
+                        })()}
+                      </div>
                     </div>
                   </div>
 
