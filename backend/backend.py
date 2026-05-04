@@ -55,6 +55,23 @@ def validation_error(message, status=400):
     return jsonify({"message": message}), status
 
 
+def normalize_cita_estado(estado, default="Agendada"):
+    value = str(estado or "").strip().lower()
+    if not value:
+        return default
+
+    mapping = {
+        "agendada": "Agendada",
+        "pendiente": "Agendada",
+        "aceptada": "Aceptada",
+        "confirmada": "Aceptada",
+        "finalizada": "Finalizada",
+        "completada": "Finalizada",
+        "cancelada": "Cancelada",
+    }
+    return mapping.get(value, default)
+
+
 def get_role_id(data):
     role_value = data.get("role_id", data.get("rol_id"))
     if role_value in (None, ""):
@@ -379,20 +396,21 @@ def bootstrap():
         cursor.execute(
             """
             SELECT c.pk_cita, c.fecha_hora, c.estado, c.motivo_consulta,
-                   c.fk_cliente, c.fk_veterinario, c.fk_mascota, c.fk_servicio,
-                   m.nombre,
-                   p.nombre, p.apellidos,
-                   v.direcc_consultorio,
+                   COALESCE(c.fk_cliente, m.fk_cliente) AS fk_cliente,
+                   c.fk_veterinario, c.fk_mascota, c.fk_servicio,
+                   COALESCE(m.nombre, CONCAT('Mascota #', c.fk_mascota)) AS mascota,
+                   COALESCE(CONCAT(p.nombre, ' ', p.apellidos), CONCAT('Veterinario #', c.fk_veterinario)) AS veterinario,
+                   COALESCE(v.direcc_consultorio, '') AS direccion,
                    COALESCE(MIN(s.nombre), 'Consulta') AS servicio
             FROM Citas c
-INNER JOIN Mascotas m ON m.pk_mascota = c.fk_mascota
-INNER JOIN Veterinario v ON v.pk_veterinario = c.fk_veterinario
-INNER JOIN Perfil_Usuario p ON p.fk_usuario = v.fk_usuario
+LEFT JOIN Mascotas m ON m.pk_mascota = c.fk_mascota
+LEFT JOIN Veterinario v ON v.pk_veterinario = c.fk_veterinario
+LEFT JOIN Perfil_Usuario p ON p.fk_usuario = v.fk_usuario
 LEFT JOIN Servicios s ON s.pk_servicio = c.fk_servicio
             GROUP BY
                 c.pk_cita, c.fecha_hora, c.estado, c.motivo_consulta,
-                c.fk_cliente, c.fk_veterinario, c.fk_mascota,
-                m.nombre, p.nombre, p.apellidos, v.direcc_consultorio
+                COALESCE(c.fk_cliente, m.fk_cliente), c.fk_veterinario, c.fk_mascota,
+                mascota, veterinario, direccion
             ORDER BY c.fecha_hora DESC
             """
         )
@@ -407,9 +425,9 @@ LEFT JOIN Servicios s ON s.pk_servicio = c.fk_servicio
                 "fk_mascota": row[6],
                 "fk_servicio": row[7],
                 "mascota": row[8],
-                "veterinario": f"{row[9]} {row[10]}".strip(),
-                "direccion": row[11] or "",
-                "servicio": row[12] or "Consulta",
+                "veterinario": row[9],
+                "direccion": row[10] or "",
+                "servicio": row[11] or "Consulta",
             }
             for row in cursor.fetchall()
         ]
@@ -433,6 +451,35 @@ LEFT JOIN Servicios s ON s.pk_servicio = c.fk_servicio
         )
     except mariadb.Error as error:
         return validation_error(f"Error al cargar datos: {error}", 500)
+    finally:
+        conn.close()
+
+@app.put("/api/citas/<int:cita_id>/estatus")
+def update_cita_status(cita_id):
+    data = request.get_json(silent=True) or {}
+    nuevo_estatus = normalize_cita_estado(data.get("estado"), default="")
+
+    if not nuevo_estatus:
+        return validation_error("El campo 'estado' es obligatorio")
+
+    conn, cursor = conectar_bd()
+    if not conn:
+        return validation_error("No se pudo conectar a la base de datos", 500)
+
+    try:
+        cursor.execute(
+            "UPDATE Citas SET estado = %s WHERE pk_cita = %s",
+            (nuevo_estatus, cita_id),
+        )
+        if cursor.rowcount == 0:
+            conn.rollback()
+            return validation_error("Cita no encontrada", 404)
+
+        conn.commit()
+        return jsonify({"message": "Estatus actualizado correctamente", "id": cita_id, "estado": nuevo_estatus})
+    except mariadb.Error as error:
+        conn.rollback()
+        return validation_error(f"Error al actualizar el estatus: {error}", 500)
     finally:
         conn.close()
 
@@ -1108,7 +1155,7 @@ def create_cita():
             """,
             (
                 data["fecha_hora"],
-                data.get("estado", "Pendiente"),
+                normalize_cita_estado(data.get("estado")),
                 data["motivo_consulta"],
                 int(data["fk_cliente"]),
                 int(data["fk_veterinario"]),

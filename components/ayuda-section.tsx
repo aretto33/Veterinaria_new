@@ -15,27 +15,92 @@ interface HelpVideo {
   audienceLabel: string
 }
 
-const clienteFaq = [
-  {
-    title: 'Como agendar una cita',
-    description: 'Explica aqui el paso a paso para que el cliente reserve una cita.'
+const ayudaPorRol = {
+  cliente: {
+    title: 'Ayuda para Cliente',
+    subtitle:
+      'Aquí puedes ver cómo agendar citas, revisar cartillas y dar seguimiento a la salud de tu mascota.',
+    faq: [
+      {
+        title: 'Como agendar una cita',
+        description:
+          'Entra a Servicios, elige al veterinario disponible, selecciona mascota, fecha y hora, y confirma la cita.',
+      },
+      {
+        title: 'Como revisar el historial de mi mascota',
+        description:
+          'Abre la sección de Cartilla y selecciona a tu mascota para ver vacunas, desparasitaciones y notas clínicas.',
+      },
+    ],
+    video: {
+      title: 'Video para cliente',
+      description: 'Guia rápida para usar citas, cartillas y el seguimiento de tu mascota.',
+      embedUrl: toEmbedUrl('https://youtu.be/1NhRQHnWNS8'),
+      audienceLabel: 'Clientes',
+    },
+    contact: {
+      email: 'soporte.cliente@tudominio.com',
+      phone: '+52 000 000 0001',
+      message: 'Atención para dudas de citas, mascotas y cartillas.',
+    },
   },
-  {
-    title: 'Como revisar el historial de mi mascota',
-    description: 'Explica aqui el paso a paso para que el cliente reserve una cita.'
+  veterinario: {
+    title: 'Ayuda para Veterinario',
+    subtitle:
+      'Aquí tienes apoyo para revisar citas del día, actualizar cartillas y atender el flujo clínico.',
+    faq: [
+      {
+        title: 'Como gestionar una cita',
+        description:
+          'Abre la agenda, revisa las citas del día y usa el estatus para confirmarlas, completarlas o cancelarlas.',
+      },
+      {
+        title: 'Como actualizar una cartilla',
+        description:
+          'En el panel veterinario selecciona la mascota, captura diagnóstico, receta y tratamiento, y guarda los cambios.',
+      },
+    ],
+    video: {
+      title: 'Video para veterinario',
+      description: 'Tutorial interno para revisar agenda, citas y cartillas clínicas.',
+      embedUrl: toEmbedUrl('https://www.youtube.com/embed/DA8ezdFm-3o'),
+      audienceLabel: 'Personal veterinario',
+    },
+    contact: {
+      email: 'soporte.veterinario@tudominio.com',
+      phone: '+52 000 000 0002',
+      message: 'Atención para dudas clínicas y operación del panel veterinario.',
+    },
   },
-]
-
-const veterinarioFaq = [
-  {
-    title: 'Como gestionar una cita',
-    description: 'Explica aqui el paso a paso para que el cliente reserve una cita.'
+  general: {
+    title: 'Centro de ayuda',
+    subtitle:
+      'Selecciona una sesión para ver instrucciones, dudas frecuentes y canales de soporte.',
+    faq: [
+      {
+        title: 'Como comenzar',
+        description:
+          'Inicia sesión para ver las opciones que corresponden a tu rol dentro de MediVet.',
+      },
+      {
+        title: 'Como pedir soporte',
+        description:
+          'Usa el correo o teléfono de atención para recibir apoyo con el acceso o el uso del sistema.',
+      },
+    ],
+    video: {
+      title: 'Video de introducción',
+      description: 'Recorrido general por las principales secciones de la plataforma.',
+      embedUrl: toEmbedUrl('https://youtu.be/1NhRQHnWNS8'),
+      audienceLabel: 'Usuarios',
+    },
+    contact: {
+      email: 'soporte@tudominio.com',
+      phone: '+52 000 000 0000',
+      message: 'Atención general para dudas del sistema.',
+    },
   },
-  {
-    title: 'Como actualizar una cartilla',
-    description: 'Explica aqui el paso a paso para que el cliente reserve una cita.'
-  },
-]
+} as const
 
 function toEmbedUrl(url: string) {
   if (url.includes('youtube.com/embed/')) {
@@ -55,28 +120,17 @@ function toEmbedUrl(url: string) {
   return url
 }
 
-const vetVideo: HelpVideo = {
-  title: 'Video para veterinario',
-  description: 'Puedes reemplazar este tutorial por el video oficial de uso interno de tu clinica.',
-  embedUrl: toEmbedUrl('https://www.youtube.com/embed/DA8ezdFm-3o'),
-  audienceLabel: 'Personal veterinario',
-}
-
-const cliVideo: HelpVideo = {
-  title: 'Video para cliente',
-  description: 'Comparte aqui una guia breve para explicar el flujo principal del portal.',
-  embedUrl: toEmbedUrl('https://youtu.be/1NhRQHnWNS8'),
-  audienceLabel: 'Clientes',
-}
-
 export function AyudaSection({ userRole }: AyudaSectionProps) {
   const isVeterinario = userRole === 2
-  const title = isVeterinario ? 'Ayuda para Veterinario' : 'Ayuda para Cliente'
-  const subtitle = isVeterinario
-    ? 'Plantilla base para documentar procesos, dudas frecuentes y soporte para el personal veterinario.'
-    : 'Plantilla base para explicar citas, cartillas, pagos y cualquier duda comun de tus clientes.'
-  const faq = isVeterinario ? veterinarioFaq : clienteFaq
-  const video = isVeterinario ? vetVideo : cliVideo
+  const ayuda = isVeterinario
+    ? ayudaPorRol.veterinario
+    : userRole === 1
+      ? ayudaPorRol.cliente
+      : ayudaPorRol.general
+  const title = ayuda.title
+  const subtitle = ayuda.subtitle
+  const faq = ayuda.faq
+  const video = ayuda.video
 
   return (
     <section className="min-h-screen bg-background">
@@ -102,7 +156,7 @@ export function AyudaSection({ userRole }: AyudaSectionProps) {
                     Contenido
                   </p>
                   <p className="mt-2 text-sm text-foreground">
-                    Video principal, FAQ y canales de soporte en una sola vista.
+                    Video principal, preguntas frecuentes y canales de soporte en una sola vista.
                   </p>
                 </div>
                 <div className="rounded-2xl border bg-muted/30 p-4">
@@ -110,7 +164,7 @@ export function AyudaSection({ userRole }: AyudaSectionProps) {
                     Audiencia
                   </p>
                   <p className="mt-2 text-sm text-foreground">
-                    La seccion cambia segun el rol del usuario actual.
+                    La sección cambia según el rol del usuario actual.
                   </p>
                 </div>
               </div>
@@ -178,7 +232,7 @@ export function AyudaSection({ userRole }: AyudaSectionProps) {
           <aside className="rounded-3xl border bg-card p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-foreground">Contacto de soporte</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Reemplaza estos datos con el correo, telefono o canal real de tu clinica.
+              {ayuda.contact.message}
             </p>
 
             <div className="mt-6 space-y-4">
@@ -186,7 +240,7 @@ export function AyudaSection({ userRole }: AyudaSectionProps) {
                 <Mail className="mt-0.5 h-4 w-4 text-primary" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Correo</p>
-                  <p className="text-sm text-muted-foreground">soporte@tudominio.com</p>
+                  <p className="text-sm text-muted-foreground">{ayuda.contact.email}</p>
                 </div>
               </div>
 
@@ -194,7 +248,7 @@ export function AyudaSection({ userRole }: AyudaSectionProps) {
                 <Phone className="mt-0.5 h-4 w-4 text-primary" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Telefono</p>
-                  <p className="text-sm text-muted-foreground">+52 000 000 0000</p>
+                  <p className="text-sm text-muted-foreground">{ayuda.contact.phone}</p>
                 </div>
               </div>
 
@@ -202,7 +256,7 @@ export function AyudaSection({ userRole }: AyudaSectionProps) {
                 <MessageCircle className="mt-0.5 h-4 w-4 text-primary" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Mensaje rapido</p>
-                  <p className="text-sm text-muted-foreground">Atendemos dudas de lunes a viernes.</p>
+                  <p className="text-sm text-muted-foreground">{ayuda.contact.message}</p>
                 </div>
               </div>
             </div>

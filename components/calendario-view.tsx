@@ -1,21 +1,24 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { CalendarClock, Clock, Info, MapPin } from 'lucide-react'
+import { CalendarClock, Clock, Info, MapPin, CheckCircle2, Timer, XCircle } from 'lucide-react'
 
 import { Calendar } from '@/components/ui/calendar'
 import { CitaAgendada } from '@/lib/types'
+import { Button } from '@/components/ui/button'
 
 interface CalendarioViewProps {
   citas: CitaAgendada[]
+  onUpdateCitaStatus?: (id: number, nuevoEstado: string) => void
 }
 
 const parseDate = (date: string) => {
+  if (!date) return new Date()
   const [year, month, day] = date.split('-').map(Number)
   return new Date(year, (month || 1) - 1, day || 1)
 }
 
-export function CalendarioView({ citas }: CalendarioViewProps) {
+export function CalendarioView({ citas, onUpdateCitaStatus }: CalendarioViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
 
   const fechasConCitas = useMemo(() => citas.map((cita) => parseDate(cita.fecha)), [citas])
@@ -25,9 +28,29 @@ export function CalendarioView({ citas }: CalendarioViewProps) {
       return citas
     }
 
-    const selectedDateText = selectedDate.toISOString().slice(0, 10)
+    const year = selectedDate.getFullYear()
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
+    const day = String(selectedDate.getDate()).padStart(2, '0')
+    const selectedDateText = `${year}-${month}-${day}`
     return citas.filter((cita) => cita.fecha === selectedDateText)
   }, [citas, selectedDate])
+
+  const getStatusConfig = (estado?: string) => {
+    switch (estado?.toLowerCase()) {
+      case 'aceptada':
+      case 'confirmada':
+        return { color: 'text-blue-600 bg-blue-50 border-blue-100', icon: CheckCircle2 }
+      case 'finalizada':
+      case 'completada':
+        return { color: 'text-emerald-600 bg-emerald-50 border-emerald-100', icon: CheckCircle2 }
+      case 'cancelada':
+        return { color: 'text-red-600 bg-red-50 border-red-100', icon: XCircle }
+      case 'agendada':
+      case 'pendiente':
+      default:
+        return { color: 'text-amber-600 bg-amber-50 border-amber-100', icon: Timer }
+    }
+  }
 
   {/*sECCIÓN EN LA CUAL SE MANDA EL WAHTSAPP */}
   const abrirWhatsapp = (
@@ -108,8 +131,20 @@ export function CalendarioView({ citas }: CalendarioViewProps) {
               {citasDelDia.map((cita) => (
                 <div key={cita.id} className="rounded-[1.5rem] border border-slate-200 p-5">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <p className="text-lg font-bold text-slate-900">{cita.servicio}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-lg font-bold text-slate-900">{cita.servicio}</p>
+                        {(() => {
+                          const config = getStatusConfig(cita.estado)
+                          const StatusIcon = config.icon
+                          return (
+                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${config.color}`}>
+                              <StatusIcon className="w-3 h-3" />
+                              {cita.estado || 'Agendada'}
+                            </div>
+                          )
+                        })()}
+                      </div>
                       <p className="text-sm text-slate-500">{cita.mascota}</p>
                     </div>
                     <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
@@ -148,23 +183,56 @@ export function CalendarioView({ citas }: CalendarioViewProps) {
                       <p className="text-sm text-slate-700">{cita.motivo}</p>
                     </div>
                   </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                    <p className="w-full text-[10px] font-bold uppercase text-slate-400 mb-1">Cambiar Estado</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs rounded-lg border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      onClick={() => onUpdateCitaStatus?.(cita.id, 'Aceptada')}
+                      disabled={cita.estado === 'Aceptada'}
+                    >
+                      Confirmar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs rounded-lg border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      onClick={() => onUpdateCitaStatus?.(cita.id, 'Finalizada')}
+                      disabled={cita.estado === 'Finalizada'}
+                    >
+                      Completar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs rounded-lg border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                      onClick={() => onUpdateCitaStatus?.(cita.id, 'Cancelada')}
+                      disabled={cita.estado === 'Cancelada'}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="text-xs font-bold uppercase text-emerald-700">WhatsApp</p>
+                    <p className="mt-1 text-sm text-emerald-900">
+                      Enviar recordatorio personalizado al cliente para esta cita.
+                    </p>
+                    <button
+                      className="mt-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors"
+                      onClick={() => abrirWhatsapp('993XXXXXXX', cita.veterinario, cita.fecha, cita.hora)}
+                    >
+                      Enviar por WhatsApp
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                    <p className="text-xs font-bold uppercase text-emerald-700">WhatsApp</p>
-                    <p className="mt-1 text-sm text-emerald-900">
-                      Aqui puedes colocar el boton para enviar recordatorio al cliente.
-                    </p>
-                    {/* endiente checar los parámetros de los numeros de telefono de los veterinarios a los clientes*/}
-                    <button className="mt-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white"
-                    onClick={() => abrirWhatsapp()}>
-                      Enviar recordatorio por WhatsApp
-                    </button>
-                  </div>
         </div>
-        
+
       </div>
     </div>
   )

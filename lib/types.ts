@@ -50,7 +50,7 @@ export interface Veterinario extends Usuario {
 export interface Citas {
   id_cita: number
   Fecha_hora: string // datetime
-  Estado: string // Default "Tabasco" según diagrama
+  Estado: string // Default 'Agendada' según diagrama
   Motivo_Consulta: string
   fk_Cliente: number
   fk_veterinario: number
@@ -69,6 +69,7 @@ export interface CitaAgendada {
   motivo: string
   fk_cliente?: number
   fk_veterinario?: number
+  estado: string
 }
 
 // Mascotas
